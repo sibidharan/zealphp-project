@@ -1,0 +1,19 @@
+{
+    "name": "sibidharan/zealphp-project",
+    "type": "template",
+    "autoload": {
+        "psr-4": {
+            "Sibidharan\\ZealphpProject\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Sibidharan",
+            "email": "sibidharan@icloud.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "sibidharan/zealphp": "v0.1.1-rc"
+    }
+}
