@@ -1,6 +1,8 @@
 {
     "name": "sibidharan/zealphp-project",
     "type": "project",
+    "description": "A simple project to demonstrate the usage of ZealPHP",
+    "license": "MIT",
     "autoload": {
         "psr-4": {
             "Sibidharan\\ZealphpProject\\": "src/"
