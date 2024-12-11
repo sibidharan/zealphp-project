@@ -1,6 +1,6 @@
 {
     "name": "sibidharan/zealphp-project",
-    "type": "template",
+    "type": "project",
     "autoload": {
         "psr-4": {
             "Sibidharan\\ZealphpProject\\": "src/"
