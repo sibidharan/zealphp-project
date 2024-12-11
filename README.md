@@ -1,3 +1,7 @@
 ## ZealPHP Project Template
 
-Coming soon
+To get started, visit https://github.com/sibidharan/zealphp
+
+## Documentation
+
+Coming Soon
