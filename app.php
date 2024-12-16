@@ -4,7 +4,7 @@ require 'vendor/autoload.php';
 
 use ZealPHP\App;
 
-$app = App::init(__DIR__, '0.0.0.0', 8080);
+$app = App::init('0.0.0.0', 8080);
 
 # Define routes here
 
