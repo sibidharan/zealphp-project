@@ -1,13 +1,16 @@
 <?php
-declare(strict_types=1);
-/**
- * Copyright © Upscale Software. All rights reserved.
- * See LICENSE.txt for license details.
- */
 namespace ZealPHP\Session;
-use function ZealPHP\zlog;
+
+use function ZealPHP\elog;
 use function ZealPHP\uniqidReal;
-class SessionManager
+use function ZealPHP\get_current_render_time;
+
+use OpenSwoole\Coroutine as co;
+
+use ZealPHP\Session\Handler\FileSessionHandler;
+use ZealPHP\G;
+
+class CoSessionManager
 {
     /**
      * @var callable
@@ -22,6 +25,8 @@ class SessionManager
     protected bool $useCookies;
 
     protected bool $useOnlyCookies;
+
+    public $g;
 
     /**
      * Inject dependencies
@@ -41,20 +46,21 @@ class SessionManager
         $this->idGenerator = $idGenerator;
         $this->useCookies = is_null($useCookies) ? (bool)ini_get('session.use_cookies') : $useCookies;
         $this->useOnlyCookies = is_null($useOnlyCookies) ? (bool)ini_get('session.use_only_cookies') : $useOnlyCookies;
+        $this->g = G::getInstance();
     }
 
     /**
      * Delegate execution to the underlying middleware wrapping it into the session start/stop calls
      */
-    public function __invoke(\Swoole\Http\Request $request, \Swoole\Http\Response $response)
+    public function __invoke(\OpenSwoole\Http\Request $request, \OpenSwoole\Http\Response $response)
     {
-        // error_log('SessionManager::__invoke');
-        if(isset($_SESSION) and isset($_SESSION['__start_time'])) {
-            error_log('[warn] Session leak detected');
+        $g = $this->g;
+        if(isset($g->session) and isset($g->session['__start_time'])) {
+            elog('[warn] Session leak detected');
         }
-        unset($_SESSION);
-        $_SESSION = [];
-        $sessionName = session_name();
+        unset($g->session);
+        $g->session = [];
+        $sessionName = zeal_session_name();
         if ($this->useCookies && isset($request->cookie[$sessionName])) {
             $sessionId = $request->cookie[$sessionName];
         } else if (!$this->useOnlyCookies && isset($request->get[$sessionName])) {
@@ -62,14 +68,17 @@ class SessionManager
         } else {
             $sessionId = call_user_func($this->idGenerator);
         }
-        session_id($sessionId);
-        // error_log('SessionManager::__invoke session_id: ' . session_id());
+        zeal_session_id($sessionId);
+        // elog('SessionManager::__invoke session_id: ' . session_id());
 
-        session_start();
+        // $handler = new FileSessionHandler();
+        // session_set_save_handler($handler, true);
 
-        // error_log('SessionManager:: session_start');
+        zeal_session_start();
+
+        // elog('SessionManager:: session_start');
         if ($this->useCookies) {
-            $cookie = session_get_cookie_params();
+            $cookie = zeal_session_get_cookie_params();
             $response->cookie(
                 $sessionName,
                 $sessionId,
@@ -84,18 +93,19 @@ class SessionManager
             $time = microtime();
             $time = explode(' ', $time);
             $time = $time[1] + $time[0];
-            $_SESSION['__start_time'] = $time;
-            $_SESSION['UNIQUE_REQUEST_ID'] = uniqidReal();
-            // zlog("SessionManager:: session_id: " . session_id() . " session_start: " . $_SESSION['__start_time']. " UNIQUE_ID: " . $_SESSION['UNIQUE_REQUEST_ID']);
+            $g->session['__start_time'] = $time;
+            $g->session['UNIQUE_REQUEST_ID'] = uniqidReal();
+            // zlog("SessionManager:: session_id: " . session_id() . " session_start: " . $g->session['__start_time']. " UNIQUE_ID: " . $g->session['UNIQUE_REQUEST_ID']);
             call_user_func($this->middleware, $request, $response);
-            // error_log('SessionManager:: middleware executed');
+            // elog('SessionManager:: middleware executed');
         } finally {
-            // error_log('SessionManager:: session_write_close');
-            session_write_close();
-            session_id('');
-            $_SESSION = [];
-            unset($_SESSION);
-            // error_log('SessionManager:: session_id unset and reset');
+            elog('SessionManager:: session_write_close took '.get_current_render_time(), 'info');
+            zeal_session_write_close();
+            zeal_session_id('');
+            $g->session = [];
+            unset($g->session);
+            // elog('SessionManager:: session_id unset and reset');
         }
     }
 }
+

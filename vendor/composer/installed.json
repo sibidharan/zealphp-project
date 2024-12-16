@@ -301,12 +301,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/sibidharan/zealphp.git",
-                "reference": "65b87693d2e350610c409f08b725736a1651c293"
+                "reference": "2ebea8b1979ce739e3fb1db4ebebfae7e8b13b83"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/65b87693d2e350610c409f08b725736a1651c293",
-                "reference": "65b87693d2e350610c409f08b725736a1651c293",
+                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/2ebea8b1979ce739e3fb1db4ebebfae7e8b13b83",
+                "reference": "2ebea8b1979ce739e3fb1db4ebebfae7e8b13b83",
                 "shasum": ""
             },
             "require": {
@@ -315,11 +315,15 @@
                 "php": ">=7.4",
                 "swoole/ide-helper": "~5.0.0"
             },
-            "time": "2024-12-11T17:02:20+00:00",
+            "time": "2024-12-16T11:04:11+00:00",
             "default-branch": true,
             "type": "library",
             "installation-source": "dist",
             "autoload": {
+                "files": [
+                    "src/utils.php",
+                    "src/Session/utils.php"
+                ],
                 "psr-4": {
                     "ZealPHP\\": "src/"
                 }

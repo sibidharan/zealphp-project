@@ -4,15 +4,42 @@ require_once __DIR__ . '/vendor/autoload.php';
 use OpenSwoole\Coroutine as co;
 use OpenSwoole\Coroutine\Channel;
 use ZealPHP\App;
+use ZealPHP\G;
 
+use function ZealPHP\elog;
 use function ZealPHP\zlog;
+App::superglobals(true);
 
-$app = App::init(__DIR__, '0.0.0.0', 8181);
-
+$app = App::init('0.0.0.0', 8181);
 // $app->route('/', function() {
 //     zlog("App started", "system");
 //     echo "<h1>This is index override</h1>";
 // });
+
+$app->route('/sessleak', function() {
+    $channel = new Channel(1);
+    go(function() use ($channel){
+        $g = G::getInstance();
+        $g->session['test'] = 'test';
+        elog("Session leak started, inside coroutine, waiting for 10 seconds to check if _SESSION gets overwritten. Now bombard the server with requests...", "test");
+        co::sleep(2);
+        $g->session['test'];
+        co::sleep(2);
+        $g->session['test'];
+        co::sleep(2);
+        $g->session['test'];
+        co::sleep(2);
+        $g->session['test'];
+        co::sleep(2);
+        $g->session['test'];
+        $channel->push($g->session);
+    });
+        // elog("Session leak started, inside coroutine, waiting for 10 seconds to check if _SESSION gets overwritten. Now bombard the server with requests...", "test");
+    $data = $channel->pop();
+    echo "<pre>";
+    print_r($data ?? "Session leak detected");
+    echo "</pre>";
+});
 
 $app->route('/co', function() {
     $channel = new Channel(5);
@@ -68,11 +95,24 @@ $app->route('/quiz/{page}/{tab}/{nwe}', function($nwe, $tab, $page) {
 $app->route("/global/{name}", [
     'methods' => ['GET', 'POST']
 ],function($name) {
+    // $g = G::getInstance();
     if (isset($GLOBALS[$name])) {
         print_r($GLOBALS[$name]);
     } else{
         echo "Unknown superglobal";
     }
+});
+
+$app->route("/coglobal/set/session", [
+    'methods' => ['GET', 'POST']
+],function($name) {
+    G::set('session', ['name' => 'John Doe']);
+});
+
+$app->route("/coglobal/get/session", [
+    'methods' => ['GET', 'POST']
+],function($name) {
+    echo G::get('session')['name'];
 });
 
 $app->route('/user/{id}/post/{postId}',[
