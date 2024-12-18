@@ -2,6 +2,10 @@
 
 A powerful light weight opensource alternative to NextJS - that uses OpenSwoole's Async IO to do everything NextJS can and do much more. 
 
+[![Latest Stable Version](https://poser.pugx.org/sibidharan/zealphp/v)](https://packagist.org/packages/sibidharan/zealphp) [![Total Downloads](https://poser.pugx.org/sibidharan/zealphp/downloads)](https://packagist.org/packages/sibidharan/zealphp) [![Latest Unstable Version](https://poser.pugx.org/sibidharan/zealphp/v/unstable)](https://packagist.org/packages/sibidharan/zealphp) [![License](https://poser.pugx.org/sibidharan/zealphp/license)](https://packagist.org/packages/sibidharan/zealphp)
+
+Homepage: https://php.zeal.lol
+
 Features:
 1. Dynamic HTML Streaming with APIs and Sockets
 2. Parallel Data Fetching and Processing (Use go() to run async coroutine)

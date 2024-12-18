@@ -46,7 +46,7 @@ class CoSessionManager
         $this->idGenerator = $idGenerator;
         $this->useCookies = is_null($useCookies) ? (bool)ini_get('session.use_cookies') : $useCookies;
         $this->useOnlyCookies = is_null($useOnlyCookies) ? (bool)ini_get('session.use_only_cookies') : $useOnlyCookies;
-        $this->g = G::getInstance();
+        $this->g = G::instance();
     }
 
     /**
@@ -95,6 +95,10 @@ class CoSessionManager
             $time = $time[1] + $time[0];
             $g->session['__start_time'] = $time;
             $g->session['UNIQUE_REQUEST_ID'] = uniqidReal();
+            $request = new \ZealPHP\HTTP\Request($request);
+            $response = new \ZealPHP\HTTP\Response($response);
+            $g->zealphp_request = $request;
+            $g->zealphp_response = $response;
             // zlog("SessionManager:: session_id: " . session_id() . " session_start: " . $g->session['__start_time']. " UNIQUE_ID: " . $g->session['UNIQUE_REQUEST_ID']);
             call_user_func($this->middleware, $request, $response);
             // elog('SessionManager:: middleware executed');

@@ -12,6 +12,10 @@ $app->route('/hello/{name}', function($name){
     echo "Hello, $name!";
 });
 
+$app->route('/hello', function(){
+    App::render('check');
+});
+
 # Additional routes can be added in `route` directory also
 
 $app->run();

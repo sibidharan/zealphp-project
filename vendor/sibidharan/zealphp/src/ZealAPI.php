@@ -7,6 +7,14 @@ use ZealPHP\App;
 use function ZealPHP\elog;
 use function ZealPHP\jTraceEx;
 
+use OpenSwoole\Core\Psr\Middleware\StackHandler;
+use OpenSwoole\Core\Psr\Response;
+use OpenSwoole\HTTP\Server;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+
 class ZealAPI extends REST
 {
     public $data = "";
@@ -32,7 +40,7 @@ class ZealAPI extends REST
     */
     public function processApi($module, $request=null)
     {
-        $g = G::getInstance();
+        $g = G::instance();
         $module = $module ? '/'.$module : '';
         $func = basename($request);
         if (!isset($module) and (int)method_exists($this, $func) > 0) {
@@ -79,7 +87,25 @@ class ZealAPI extends REST
                                 : null;
                         }
                     }
-                    $this->$func(...$invokeArgs);
+                    ob_start();
+                    $object = $this->$func(...$invokeArgs);;
+                    if(is_int($object)){
+                        $status = (int)$object;
+                    } else {
+                        $status = null;
+                    }
+
+                    if($status == null){
+                        $status = $g->status ?? 200;
+                    }
+                    $buffer = ob_get_clean();
+
+                    if($object instanceof ResponseInterface){
+                        return $object;
+                    }
+
+                    return (new Response($buffer, $status));
+                    
                 } else {
                     $this->response($this->json(['error'=>'method_not_found']), 404);
                 }

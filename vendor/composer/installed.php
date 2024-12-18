@@ -3,7 +3,7 @@
         'name' => 'sibidharan/zealphp-project',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '1ab136b84204b5376a62a04f5d6350712c8a385d',
+        'reference' => '3ba405c3448b268c374c8510c367120bcc172fc5',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -29,14 +29,12 @@
             'dev_requirement' => false,
         ),
         'psr/http-message' => array(
-            'pretty_version' => 'dev-master',
-            'version' => 'dev-master',
-            'reference' => '402d35bcb92c70c026d1a6a9883f06b2ead23d71',
+            'pretty_version' => '1.1',
+            'version' => '1.1.0.0',
+            'reference' => 'cb6ce4845ce34a8ad9e68117c10ee90a29919eba',
             'type' => 'library',
             'install_path' => __DIR__ . '/../psr/http-message',
-            'aliases' => array(
-                0 => '2.0.x-dev',
-            ),
+            'aliases' => array(),
             'dev_requirement' => false,
         ),
         'psr/http-server-handler' => array(
@@ -64,7 +62,7 @@
         'sibidharan/zealphp' => array(
             'pretty_version' => 'dev-master',
             'version' => 'dev-master',
-            'reference' => '2ebea8b1979ce739e3fb1db4ebebfae7e8b13b83',
+            'reference' => '92fa99424dfa163f2d01502cbd93ae79ac6cc807',
             'type' => 'library',
             'install_path' => __DIR__ . '/../sibidharan/zealphp',
             'aliases' => array(
@@ -75,7 +73,7 @@
         'sibidharan/zealphp-project' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '1ab136b84204b5376a62a04f5d6350712c8a385d',
+            'reference' => '3ba405c3448b268c374c8510c367120bcc172fc5',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

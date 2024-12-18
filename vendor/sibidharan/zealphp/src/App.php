@@ -3,9 +3,20 @@ namespace ZealPHP;
 
 use ZealPHP\ZealAPI;
 use ZealPHP\Session;
-use ZealPHP\Session\CoSessionManager;
 use function ZealPHP\elog;
 use function ZealPHP\jTraceEx;
+
+use OpenSwoole\Core\Psr\Middleware\StackHandler;
+use OpenSwoole\Core\Psr\Response;
+use OpenSwoole\HTTP\Server;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+
+
+
+use OpenSwoole\Coroutine as co;
 class App
 {
     protected $routes = [];
@@ -16,6 +27,7 @@ class App
     private static $instance = null;
     public static $display_errors = true;
     public static $superglobals = true;
+    public static $middleware_stack = null;
 
     private function __construct($host = '0.0.0.0', $port = 8080,$cwd = __DIR__)
     {
@@ -53,6 +65,9 @@ class App
         if ($cwd === null) {
             $cwd = dirname(debug_backtrace(DEBUG_BACKTRACE_PROVIDE_OBJECT, 1)[0]['file']);
         }
+        if(!App::$superglobals){
+            co::set(['hook_flags'=> \OpenSwoole\Runtime::HOOK_ALL]);
+        }
         if (self::$instance == null) {
             self::$instance = new App($host, $port, $cwd);
         } else {
@@ -68,6 +83,11 @@ class App
     public static function instance()
     {
         return self::$instance;
+    }
+
+    public function getRoutes()
+    {
+        return $this->routes;
     }
 
     // Prevent the instance from being cloned.
@@ -294,7 +314,7 @@ class App
     public static function render($_template = 'index', $_data = [])
     {
         $_source = Session::getCurrentFile(null);
-        elog("Rendering template: $_template from $_source");
+        // elog("Rendering template: $_template from $_source", "render");
         extract($_data, EXTR_SKIP);
         //This function returns the current script to build the template path.
         $_general = strpos($_template, '/') === 0;
@@ -351,7 +371,7 @@ class App
      */
     public function run($settings = null)
     {
-        $g = G::getInstance();
+        $g = G::instance();
         $default_settings = [
             'enable_static_handler' => true,
             'document_root' => self::$cwd . '/public',
@@ -361,7 +381,7 @@ class App
             // 'task_enable_coroutine' => true,
         ];
         // elog("Initializing ZealPHP server at http://{$this->host}:{$this->port}");
-        self::$server = $server = new \Swoole\HTTP\Server($this->host, $this->port);
+        self::$server = $server = new \OpenSwoole\HTTP\Server($this->host, $this->port);
         if ($settings == null){
             $server->set($default_settings);
         } else {
@@ -384,7 +404,7 @@ class App
         ], function($rquest, $response, $request){
             $api = new ZealAPI($request, $response, self::$cwd);
             try {
-                $api->processApi("", $rquest);
+                return $api->processApi("", $rquest);
             } catch (\Exception $e){
                 $api->die($e);
             }
@@ -396,7 +416,7 @@ class App
         ], function($module, $rquest, $response, $request){
             $api = new ZealAPI($request, $response, self::$cwd);
             try {
-                $api->processApi($module, $rquest);
+                return $api->processApi($module, $rquest);
             } catch (\Exception $e){
                 $api->die($e);
             }
@@ -405,14 +425,14 @@ class App
         # Implicit route for ignoring PHP extensions
 
         $this->patternRoute('/.*\.php', ['methods' => ['GET', 'POST']], function($response) {
-            $response->status(403);
-            $response->write("<h1>403 Forbidden</h1>");
+            echo("<pre>403 Forbidden</pre>");
+            return(403);
         });
 
         # Implicit route for index.php
 
         $this->route('/', function($response){
-            $g = G::getInstance();
+            $g = G::instance();
             $file = 'index';
             $g->server['PHP_SELF'] = '/'.$file.'.php';
             // if(self::$superglobals){
@@ -423,14 +443,14 @@ class App
                 include $abs_file;
             } else {
                 //TODO: Can load user page here if file not found
-                $response->status(404);
                 echo("<pre>404 Not Found</pre>");
+                return(404);
             }
         });
 
-        # Gobal route for all root in the public directory
+        # Global route for all files in the root of the public directory
         $this->route('/{file}/?', function($file, $response){
-            $g = G::getInstance();
+            $g = G::instance();
             $abs_file = realpath(self::$cwd."/public/".$file.'.php');
             if(file_exists($abs_file)){
                 if ($this->includeCheck($abs_file)){
@@ -440,8 +460,8 @@ class App
                     // }
                     include $abs_file;
                 } else {
-                    $response->status(403);
                     echo("<pre>403 Forbidden</pre>");
+                    return 403;
                 }
             } else if(is_dir(self::$cwd."/public/".$file)){
                 $abs_file = realpath(self::$cwd."/public/".$file."/index.php");
@@ -453,23 +473,23 @@ class App
                         // }
                         include $abs_file;
                     } else {
-                        $response->status(403);
                         echo("<pre>403 Forbidden</pre>");
+                        return 403;
                     }
                 } else {
-                    $response->status(404);
                     echo("<pre>404 Not Found</pre>");
+                    return 404;
                 }
             } else {
                 //TODO: Can load user page here if file not found
-                $response->status(404);
                 echo("<pre>404 Not Found</pre>");
+                return 404;
             }
         });
 
-        # Global route for all directories in the public directory
+        # Global route for all directories and sub directories in the public directory
         $this->nsPathRoute('{dir}', '{uri}/?', function($dir, $uri, $response){
-            $g = G::getInstance();
+            $g = G::instance();
             // elog("Directory: $dir, URI: $uri");
             $abs_file = realpath(self::$cwd."/public/".$dir.'/'.$uri.'.php');
             // elog("Abs File: $abs_file");
@@ -481,8 +501,8 @@ class App
                     // }
                     include $abs_file;
                 } else {
-                    $response->status(403);
                     echo("<pre>403 Forbidden</pre>");
+                    return(403);
                 }
             } else if(is_dir(self::$cwd."/public/".$dir.'/'.$uri)){
                 $abs_path = self::$cwd."/public/".$dir.'/'.$uri."/index.php";
@@ -494,17 +514,20 @@ class App
                         // }
                         include $abs_path;
                     } else {
-                        $response->status(403);
                         echo("<pre>403 Forbidden</pre>");
+                        return(403);
+                       
                     }
                 } else {
-                    $response->status(404);
                     echo("<pre>404 Not Found</pre>");
+                    return(404);
+                   
                 }
             } else {
                 //TODO: Can load user page here if file not found
-                $response->status(404);
                 echo("<pre>404 Not Found</pre>");
+                return(404);
+                
             }
         });
         
@@ -535,76 +558,16 @@ class App
         });
 
         $SessionManager = self::$superglobals ?  'ZealPHP\Session\SessionManager' : 'ZealPHP\Session\CoSessionManager';
-        $server->on("request",new $SessionManager(function($request, $response) use ($server) {
-            // Set up superglobals
-            //if(self::$superglobals){
-            //     // $_GET
-            //     unset($_GET);
-            //     $_GET = $request->get ?? [];
 
-            //     // $_POST
-            //     unset($_POST);
-            //     $_POST = $request->post ?? [];
+        self::$middleware_stack = (new StackHandler())
+        ->add(new ResponseMiddleware())
+        ->add(new LoggingMiddleware());
 
-            //     //$_REQUEST
-            //     unset($_REQUEST);
-            //     $_REQUEST = array_merge($_GET, $_POST);
-
-            //     // $_COOKIE
-            //     unset($_COOKIE);
-            //     $_COOKIE = $request->cookie ?? [];
-
-            //     // $_FILES
-            //     unset($_FILES);
-            //     $_FILES = [];
-            //     if (!empty($request->files)) {
-            //         $_FILES = $request->files;
-            //     }
-
-            //     // $_SERVER
-            //     unset($_SERVER);
-            //     $_SERVER = [];
-            //     if (!empty($request->server)) {
-            //         foreach ($request->server as $key => $value) {
-            //             $_SERVER[strtoupper($key)] = $value;
-            //         }
-            //     }
-            //     // Headers go into $_SERVER as HTTP_ variables
-            //     if (!empty($request->header)) {
-            //         foreach ($request->header as $key => $value) {
-            //             $headerKey = 'HTTP_' . str_replace('-', '_', strtoupper($key));
-            //             $_SERVER[$headerKey] = $value;
-            //         }
-            //     }
-
-            //     // Common server vars typically set by web servers:
-            //     if (!isset($_SERVER['REQUEST_METHOD'])) {
-            //         $_SERVER['REQUEST_METHOD'] = 'GET';
-            //     }
-            //     if (!isset($_SERVER['REQUEST_URI'])) {
-            //         $_SERVER['REQUEST_URI'] = '/';
-            //     }
-            //     if (!isset($_SERVER['SCRIPT_NAME'])) {
-            //         $_SERVER['SCRIPT_NAME'] = '/app.php';
-            //     }
-            //     if (!isset($_SERVER['SERVER_NAME'])) {
-            //         $_SERVER['SERVER_NAME'] = $_SERVER['HTTP_HOST'] ?? 'localhost';
-            //     }
-            //     if (!isset($_SERVER['DOCUMENT_ROOT'])) {
-            //         $_SERVER['DOCUMENT_ROOT'] = self::$cwd . '/public';
-            //     }
-            //     if (!isset($_SERVER['PHP_SELF'])) {
-            //         $_SERVER['PHP_SELF'] = '/app.php';
-            //     }
-
-            //     $uri = $_SERVER['REQUEST_URI'];
-            //     $method = $_SERVER['REQUEST_METHOD'];
-            // } 
-
-            $g = G::getInstance();
+        $server->on("request",new $SessionManager(function(\ZealPHP\HTTP\Request $request, \ZealPHP\HTTP\Response $response) use ($server) {
+            
+            $g = G::instance();
             // $_GET alternative
             $g->get = $request->get ?? [];
-
             // $_POST alternative
             $g->post = $request->post ?? [];
 
@@ -654,74 +617,124 @@ class App
             if (!isset($g->server['PHP_SELF'])) {
                 $g->server['PHP_SELF'] = '/app.php';
             }
-
-            $uri = $request->server['request_uri'];
-            $method = $request->server['request_method'];
-
-
-            foreach ($this->routes as $route) {
-                // Check if method matches
-                if (!in_array($method, $route['methods'])) {
-                    continue;
-                }
-
-                // Check if URI matches
-                if (preg_match($route['pattern'], $uri, $matches)) {
-                    // elog("Matched route: $uri, $route[pattern]");
-                    $params = array_filter($matches, fn($k) => !is_numeric($k), ARRAY_FILTER_USE_KEY);
-
-                    $handler = $route['handler'];
-
-                    // Reflect the handler parameters and inject them dynamically
-                    $reflection = is_array($handler)
-                        ? new \ReflectionMethod($handler[0], $handler[1])
-                        : new \ReflectionFunction($handler);
-
-                    $invokeArgs = [];
-                    foreach ($reflection->getParameters() as $param) {
-                        $pname = $param->getName();
-                        if (isset($params[$pname])) {
-                            $invokeArgs[] = $params[$pname];
-                        } else if ($pname == 'app'){
-                            $invokeArgs[] = $this;
-                        } else if ($pname == 'request'){
-                            $invokeArgs[] = $request;
-                        } else if ($pname == 'response'){
-                            $invokeArgs[] = $response;
-                        } else if ($pname == 'server'){
-                            $invokeArgs[] = $server;
-                        } else {
-                            $invokeArgs[] = $param->isDefaultValueAvailable() 
-                                ? $param->getDefaultValue() 
-                                : null;
-                        }
-                    }
-                    try {
-                        ob_start();
-                        call_user_func_array($handler, $invokeArgs);
-                        $buffer = ob_get_clean();
-                        $response->end($buffer);
-                        return;
-                    } catch (\Exception $e) {
-                        $response->status(500);
-                        elog(jTraceEx($e), "error");
-                        if (self::$display_errors) {
-                            // print the error message to the error log
-                            $response->end("<pre>".jTraceEx($e)."</pre>");
-                        } else {
-                            $response->end("<pre>500 Internal Server Error</pre>");
-                        }
-                        return;
-
-                    }
-                }
-            }
-
-            // 404 if no match
-            $response->status(404);
-            $response->end("<pre>404 Not Found</pre>");
+            $g->openswoole_request = $request;
+            $g->openswoole_response = $response;
+            // elog("SwooleHandler ".get_current_render_time());
+            // TODO: PSR Takes over 0.00040 seconds, see if something can be done about it.
+            $serverRequest  = \OpenSwoole\Core\Psr\ServerRequest::from($request->parent);
+            $serverResponse = App::middleware()->handle($serverRequest);
+            // elog("PSRResponse ".get_current_render_time());
+            \OpenSwoole\Core\Psr\Response::emit($response->parent, $serverResponse->withHeader('X-Powered-By', 'ZealPHP + OpenSwoole'));
         }));
+
         elog("ZealPHP server running at http://{$this->host}:{$this->port} with ".count($this->routes)." routes");
         $server->start();
     }
+
+    public static function middleware(){
+        return self::$middleware_stack;
+    }
 }
+
+class ResponseMiddleware implements MiddlewareInterface
+{
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        $g = G::instance();
+        $uri = $g->server['REQUEST_URI'];
+        $method = $g->server['REQUEST_METHOD'];
+
+        $app = App::instance();
+        foreach ($app->getRoutes() as $route) {
+            // Check if method matches
+            if (!in_array($method, $route['methods'])) {
+                continue;
+            }
+
+            // Check if URI matches
+            if (preg_match($route['pattern'], $uri, $matches)) {
+                // elog("Matched route: $uri, $route[pattern]");
+                $params = array_filter($matches, fn($k) => !is_numeric($k), ARRAY_FILTER_USE_KEY);
+
+                $handler = $route['handler'];
+
+                // Reflect the handler parameters and inject them dynamically
+                $reflection = is_array($handler)
+                    ? new \ReflectionMethod($handler[0], $handler[1])
+                    : new \ReflectionFunction($handler);
+
+                $invokeArgs = [];
+                foreach ($reflection->getParameters() as $param) {
+                    $pname = $param->getName();
+                    if (isset($params[$pname])) {
+                        $invokeArgs[] = $params[$pname];
+                    } else if ($pname == 'app'){
+                        $invokeArgs[] = $this;
+                    } else if ($pname == 'request'){
+                        $invokeArgs[] = $g->zealphp_request;
+                    } else if ($pname == 'response'){
+                        $invokeArgs[] = $g->zealphp_response;
+                    } else {
+                        $invokeArgs[] = $param->isDefaultValueAvailable() 
+                            ? $param->getDefaultValue() 
+                            : null;
+                    }
+                }
+                try {
+                    ob_start();
+                    $object = call_user_func_array($handler, $invokeArgs);
+                    if(is_int($object)){
+                        $status = (int)$object;
+                    } else {
+                        $status = null;
+                    }
+
+                    if($status == null){
+                        $status = $g->status ?? 200;
+                    }
+                    $buffer = ob_get_clean();
+
+                    if($object instanceof ResponseInterface){
+                        return $object;
+                    }
+
+                    return (new Response($buffer, $status));
+                } catch (\Exception $e) {
+                    elog(jTraceEx($e), "error");
+                    if (App::$display_errors) {
+                        // print the error message to the error log
+                        return (new Response("<pre>".jTraceEx($e)."</pre>"))->withStatus(500);
+                    } else {
+                        return (new Response("<pre>500 Internal Server Error</pre>"))->withStatus(500);
+                    }
+                }
+                break;
+            }
+        }
+        return (new Response('<pre>404 Not Found</pre>'))->withStatus(404);
+    }
+}
+
+class LoggingMiddleware implements MiddlewareInterface
+{
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        $response = $handler->handle($request);
+        access_log($response->getStatusCode(), strlen($response->getBody()));
+        return $response;
+    }
+}
+
+class MiddlewareB implements MiddlewareInterface
+{
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        $requestBody = $request->getBody();
+        var_dump('B1');
+        $response = $handler->handle($request);
+        var_dump('B2');
+        return $response;
+    }
+}
+
+  

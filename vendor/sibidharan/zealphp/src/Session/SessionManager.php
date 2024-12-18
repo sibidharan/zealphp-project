@@ -10,6 +10,14 @@ use OpenSwoole\Coroutine as co;
 use ZealPHP\Session\Handler\FileSessionHandler;
 use ZealPHP\G;
 
+use OpenSwoole\Core\Psr\Middleware\StackHandler;
+use OpenSwoole\Core\Psr\Response;
+use OpenSwoole\HTTP\Server;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+
 class SessionManager
 {
     /**
@@ -46,13 +54,17 @@ class SessionManager
         $this->idGenerator = $idGenerator;
         $this->useCookies = is_null($useCookies) ? (bool)ini_get('session.use_cookies') : $useCookies;
         $this->useOnlyCookies = is_null($useOnlyCookies) ? (bool)ini_get('session.use_only_cookies') : $useOnlyCookies;
-        $this->g = G::getInstance();
+        $this->g = G::instance();
     }
+
+    // public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface {
+
+    // }
 
     /**
      * Delegate execution to the underlying middleware wrapping it into the session start/stop calls
      */
-    public function __invoke(\Swoole\Http\Request $request, \Swoole\Http\Response $response)
+    public function __invoke($request,$response)
     {
         // G::init();
         // elog('SessionManager::__invoke');
@@ -97,6 +109,10 @@ class SessionManager
             $_SESSION['__start_time'] = $time;
             $_SESSION['UNIQUE_REQUEST_ID'] = uniqidReal();
             // zlog("SessionManager:: session_id: " . session_id() . " session_start: " . $_SESSION['__start_time']. " UNIQUE_ID: " . $_SESSION['UNIQUE_REQUEST_ID']);
+            $request = new \ZealPHP\HTTP\Request($request);
+            $response = new \ZealPHP\HTTP\Response($response);
+            $this->g->zealphp_request = $request;
+            $this->g->zealphp_response = $response;
             call_user_func($this->middleware, $request, $response);
             // elog('SessionManager:: middleware executed');
         } finally {

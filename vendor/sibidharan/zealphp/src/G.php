@@ -13,9 +13,10 @@ class G
     {
         // Initialize properties...
         $this->session_params = [];
+        $this->status = null;
     }
 
-    public static function getInstance()
+    public static function instance()
     {
         if (self::$instance === null) {
             self::$instance = new G();
@@ -27,12 +28,15 @@ class G
     public function &__get($key)
     {
         if (App::$superglobals) {
-            $superglobalKey = '_' . strtoupper($key);
-            if (!isset($GLOBALS[$superglobalKey])) {
-                // Initialize the superglobal if it doesn't exist
-                $GLOBALS[$superglobalKey] = null;
+            if (in_array($key, ['get', 'post', 'cookie', 'files', 'server', 'request', 'env', 'session'])) {
+                $superglobalKey = '_' . strtoupper($key);
+                if (!isset($GLOBALS[$superglobalKey])) {
+                    // Initialize the superglobal if it doesn't exist
+                    $GLOBALS[$superglobalKey] = null;
+                }
+                return $GLOBALS[$superglobalKey];
             }
-            return $GLOBALS[$superglobalKey];
+            return $GLOBALS[$key];
         } else {
             if (!isset($this->$key)) {
                 // Initialize the property if it doesn't exist
@@ -54,12 +58,12 @@ class G
 
     public static function get($key)
     {
-        return self::getInstance()->$key;
+        return self::instance()->$key;
     }
 
     public static function set($key, $value)
     {
-        self::getInstance()->$key = $value;
+        self::instance()->$key = $value;
     }
 
 }
