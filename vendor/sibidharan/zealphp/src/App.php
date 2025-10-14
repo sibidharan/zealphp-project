@@ -14,8 +14,6 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
-
-
 use OpenSwoole\Coroutine as co;
 class App
 {
@@ -24,13 +22,21 @@ class App
     protected $port;
     static $cwd;
     static $server;
+    static $default_php_self;
     private static $instance = null;
     public static $display_errors = true;
     public static $superglobals = true;
     public static $middleware_stack = null;
+    public static $middleware_wait_stack = [];
+    public static $ignore_php_ext = true;
+    public static $coproc_implicit_request_handler = false;
 
     private function __construct($host = '0.0.0.0', $port = 8080,$cwd = __DIR__)
     {
+        # if uopz not enabled, throw error
+        if (!extension_loaded('uopz')) {
+            throw new \Exception("uopz extension is required for ZealPHP to work, 'pecl install uopz' to install and load it in your php.ini");
+        }
         $this->host = $host;
         $this->port = $port;
         self::$cwd = $cwd;
@@ -49,6 +55,29 @@ class App
                 $_ENV[$key] = $value;
             }
         }
+
+        \uopz_set_return('header', \Closure::fromCallable('\ZealPHP\header'), true);
+        \uopz_set_return('headers_list', \Closure::fromCallable('\ZealPHP\headers_list'), true);
+        \uopz_set_return('setcookie', \Closure::fromCallable('\ZealPHP\setcookie') , true);
+        \uopz_set_return('http_response_code', \Closure::fromCallable('\ZealPHP\http_response_code'), true);
+        \uopz_set_return('session_start', \Closure::fromCallable('\ZealPHP\Session\zeal_session_start'), true);
+        \uopz_set_return('session_id', \Closure::fromCallable('\ZealPHP\Session\zeal_session_id'), true);
+        \uopz_set_return('session_status', \Closure::fromCallable('\ZealPHP\Session\zeal_session_status'), true);
+        \uopz_set_return('session_name', \Closure::fromCallable('\ZealPHP\Session\zeal_session_name'), true);
+        \uopz_set_return('session_write_close', \Closure::fromCallable('\ZealPHP\Session\zeal_session_write_close'), true);
+        \uopz_set_return('session_destroy', \Closure::fromCallable('\ZealPHP\Session\zeal_session_destroy'), true);
+        \uopz_set_return('session_unset', \Closure::fromCallable('\ZealPHP\Session\zeal_session_unset'), true);
+        \uopz_set_return('session_regenerate_id', \Closure::fromCallable('\ZealPHP\Session\zeal_session_regenerate_id'), true);
+        \uopz_set_return('session_get_cookie_params', \Closure::fromCallable('\ZealPHP\Session\zeal_session_get_cookie_params'), true);
+        \uopz_set_return('session_set_cookie_params', \Closure::fromCallable('\ZealPHP\Session\zeal_session_set_cookie_params'), true);
+        \uopz_set_return('session_cache_limiter', \Closure::fromCallable('\ZealPHP\Session\zeal_session_cache_limiter'), true);
+        \uopz_set_return('session_cache_expire', \Closure::fromCallable('\ZealPHP\Session\zeal_session_cache_expire'), true);
+        \uopz_set_return('session_commit', \Closure::fromCallable('\ZealPHP\Session\zeal_session_commit'), true);
+        \uopz_set_return('session_abort', \Closure::fromCallable('\ZealPHP\Session\zeal_session_abort'), true);
+        \uopz_set_return('session_encode', \Closure::fromCallable('\ZealPHP\Session\zeal_session_encode'), true);
+        \uopz_set_return('session_decode', \Closure::fromCallable('\ZealPHP\Session\zeal_session_decode'), true);
+        \uopz_set_return('session_save_path', \Closure::fromCallable('\ZealPHP\Session\zeal_session_save_path'), true);
+        \uopz_set_return('session_module_name', \Closure::fromCallable('\ZealPHP\Session\zeal_session_module_name'), true);
     }
 
     /**
@@ -63,7 +92,11 @@ class App
     public static function init($host = '0.0.0.0', $port = 8080, $cwd=null): App
     {
         if ($cwd === null) {
-            $cwd = dirname(debug_backtrace(DEBUG_BACKTRACE_PROVIDE_OBJECT, 1)[0]['file']);
+            $php_self = debug_backtrace(DEBUG_BACKTRACE_PROVIDE_OBJECT, 1)[0]['file'];
+            $file_name = '/'.basename($php_self);
+            $cwd = dirname($php_self);
+            self::$default_php_self = $file_name;
+            self::$middleware_stack = (new StackHandler())->add(new ResponseMiddleware());
         }
         if(!App::$superglobals){
             co::set(['hook_flags'=> \OpenSwoole\Runtime::HOOK_ALL]);
@@ -85,7 +118,7 @@ class App
         return self::$instance;
     }
 
-    public function getRoutes()
+    public function routes()
     {
         return $this->routes;
     }
@@ -303,37 +336,50 @@ class App
     /**
      * Renders a template with the provided data.
      * This function looks for templates in the ./template folder located in the current working directory of the server.
-     * It takes PHP_SELF into account and uses it as the source folder to look for templates unless the $_template starts with /.
-     * Starting the $_template with / tells the render function to look for the template from the root of the template folder.
+     * It takes PHP_SELF into account and uses it as the source folder to look for templates unless the $__template_file starts with /.
+     * Starting the $__template_file with / tells the render function to look for the template from the root of the template folder.
      *
-     * @param string $_template The name of the template to render. Defaults to 'index'.
-     * @param array $_data An associative array of data to pass to the template. Defaults to an empty array.
+     * @param string $__template_file The name of the template to render. Defaults to 'index'.
+     * @param array $__args An associative array of data to pass to the template. Defaults to an empty array.
      * @throws TemplateUnavailableException if the template does not exist.
      * @return void
      */
-    public static function render($_template = 'index', $_data = [])
+    public static function render($__template_file = 'index', $__args = [], $__default_template_dir = 'template')
     {
-        $_source = Session::getCurrentFile(null);
-        // elog("Rendering template: $_template from $_source", "render");
-        extract($_data, EXTR_SKIP);
-        //This function returns the current script to build the template path.
-        $_general = strpos($_template, '/') === 0;
-        if ($_template == '_error') {
-            include self::$cwd . '/template/' . $_template . '.php';
-        } elseif ($_general) {
-            if (!file_exists(self::$cwd . '/template/' . $_template . '.php')) {
-                $bt = debug_backtrace();
-                $caller = array_shift($bt);
-                throw new TemplateUnavailableException("The template $_template does not exist in file " . str_replace(App::$cwd, '', $caller['file']) . ":" . $caller['line'] );
-            }
-            include self::$cwd . '/template/' . $_template . '.php';
+        $__current_file = self::getCurrentFile(null);
+        $__template_dir = self::$cwd . "/$__default_template_dir";
+        $__root_lookup = strpos($__template_file, '/') === 0;
+        if ($__root_lookup) {
+            $__template_file_path = $__template_dir . $__template_file . '.php';
+        } else if(!empty($__current_file) and is_dir("$__template_dir/" . $__current_file)){
+            $__template_file_path = "$__template_dir/" . $__current_file . '/' . $__template_file . '.php';
         } else {
-            if (!file_exists(self::$cwd . '/template/' . $_source . '/' . $_template . '.php')) {
-                $bt = debug_backtrace();
-                $caller = array_shift($bt);
-                throw new TemplateUnavailableException("The template $_template does not exist in file " . str_replace(App::$cwd, '', $caller['file']) . ":" . $caller['line'] );
-            }
-            include self::$cwd . '/template/' . $_source . '/' . $_template . '.php';
+            $__template_file_path = "$__template_dir/" . $__template_file . '.php';
+        }
+
+        $__template_file_path = realpath($__template_file_path);
+
+        if (!$__template_file_path or !file_exists($__template_file_path) or strpos($__template_file_path, self::$cwd) !== 0) {
+            $caller = array_shift(debug_backtrace());
+            throw new TemplateUnavailableException("The template $__template_file_path does not exist in file " . str_replace(App::$cwd, '', $caller['file']) . ":" . $caller['line'] );
+        } else {
+            extract($__args, EXTR_SKIP);
+            include $__template_file_path;
+        }
+    }
+
+    
+    /**
+     * Returns the current executing script name without extenstion
+     * @return String
+     */
+    public static function getCurrentFile($file = null)
+    {
+        $g = G::instance();
+        if ($file == null) {
+            return basename($g->server['PHP_SELF'], '.php');
+        } else {
+            return basename($file, '.php');
         }
     }
 
@@ -351,6 +397,10 @@ class App
         } else {
             return true;
         }
+    }
+
+    public function addMiddleware(\Psr\Http\Server\MiddlewareInterface $middleware){
+        self::$middleware_wait_stack[] = $middleware;
     }
 
     /**
@@ -371,7 +421,10 @@ class App
      */
     public function run($settings = null)
     {
-        $g = G::instance();
+        App::$coproc_implicit_request_handler = App::$superglobals;
+        if(!App::$superglobals){
+            co::set(['hook_flags'=> \OpenSwoole\Runtime::HOOK_ALL]);
+        }
         $default_settings = [
             'enable_static_handler' => true,
             'document_root' => self::$cwd . '/public',
@@ -394,7 +447,7 @@ class App
 
         $route_files = glob(self::$cwd."/route/*.php");
         foreach ($route_files as $route_file) {
-            elog("Including route file: ".str_replace(App::$cwd, '', $route_file));
+            elog("Including route file 1: ".str_replace(App::$cwd, '', $route_file));
             include $route_file;
         }
 
@@ -424,23 +477,43 @@ class App
 
         # Implicit route for ignoring PHP extensions
 
-        $this->patternRoute('/.*\.php', ['methods' => ['GET', 'POST']], function($response) {
-            echo("<pre>403 Forbidden</pre>");
-            return(403);
-        });
+        if(App::$ignore_php_ext){
+            $this->patternRoute('/.*\.php', ['methods' => ['GET', 'POST']], function($response) {
+                echo("<pre>403 Forbidden</pre>");
+                return(403);
+            });
+        }
+        // $this->patternRoute('/.*\.php', ['methods' => ['GET', 'POST']], function($response) {
+        //     echo("<pre>403 Forbidden</pre>");
+        //     return(403);
+        // });
 
         # Implicit route for index.php
 
-        $this->route('/', function($response){
+        $this->route('/',[
+            'methods' => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH']
+        ], function($response){
+            // elog("Index route hit");
             $g = G::instance();
             $file = 'index';
             $g->server['PHP_SELF'] = '/'.$file.'.php';
-            // if(self::$superglobals){
-            //     $_SERVER['PHP_SELF'] = $g->server['PHP_SELF'];
-            // }
+            $g->server['SCRIPT_NAME'] = '/'.$file.'.php';
+            $g->server['SCRIPT_FILENAME'] = self::$cwd."/public/".$file.".php";
             $abs_file = self::$cwd."/public/".$file.".php";
             if(file_exists($abs_file)){
-                include $abs_file;
+                if ($this->includeCheck($abs_file)){
+                    if(self::$coproc_implicit_request_handler){
+                        echo prefork_request_handler(function() use ($abs_file){
+                            // throw new \Exception("Include: $abs_file");
+                            include $abs_file;
+                        });
+                    } else {
+                        include $abs_file;
+                    }
+                } else {
+                    echo("<pre>403 Forbidden</pre>");
+                    return(403);
+                }
             } else {
                 //TODO: Can load user page here if file not found
                 echo("<pre>404 Not Found</pre>");
@@ -449,16 +522,28 @@ class App
         });
 
         # Global route for all files in the root of the public directory
-        $this->route('/{file}/?', function($file, $response){
+        $this->route(App::$ignore_php_ext ? '/{file}/?' : '/{file}(\.php)?/?', [
+            'methods' => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH']
+        ], function($file, $response){
             $g = G::instance();
+            # if file ends with .php remove it
+            if (substr($file, -4) == '.php') {
+                $file = substr($file, 0, -4);
+            }
             $abs_file = realpath(self::$cwd."/public/".$file.'.php');
             if(file_exists($abs_file)){
                 if ($this->includeCheck($abs_file)){
                     $g->server['PHP_SELF'] = '/'.$file.'.php';
-                    // if(self::$superglobals){
-                    //     $_SERVER['PHP_SELF'] = $g->server['PHP_SELF'];
-                    // }
-                    include $abs_file;
+                    $g->server['SCRIPT_NAME'] = '/'.$file.'.php';
+                    $g->server['SCRIPT_FILENAME'] = $abs_file;
+                    if(self::$coproc_implicit_request_handler){
+                        echo prefork_request_handler(function() use ($abs_file){
+                            // throw new \Exception("Include: $abs_file");
+                            include $abs_file;
+                        });
+                    } else {
+                        include $abs_file;
+                    }
                 } else {
                     echo("<pre>403 Forbidden</pre>");
                     return 403;
@@ -468,10 +553,16 @@ class App
                 if(file_exists($abs_file)){
                     if ($this->includeCheck($abs_file)){
                         $g->server['PHP_SELF'] = '/'.$file.'/index.php';
-                        // if(self::$superglobals){
-                        //     $_SERVER['PHP_SELF'] =  $g->server['PHP_SELF'];
-                        // }
-                        include $abs_file;
+                        $g->server['SCRIPT_NAME'] = '/'.$file.'/index.php';
+                        $g->server['SCRIPT_FILENAME'] = $abs_file;
+                        if(self::$coproc_implicit_request_handler){
+                            echo prefork_request_handler(function() use ($abs_file){
+                                // throw new \Exception("Include: $abs_file");
+                                include $abs_file;
+                            });
+                        } else {
+                            include $abs_file;
+                        }
                     } else {
                         echo("<pre>403 Forbidden</pre>");
                         return 403;
@@ -488,18 +579,30 @@ class App
         });
 
         # Global route for all directories and sub directories in the public directory
-        $this->nsPathRoute('{dir}', '{uri}/?', function($dir, $uri, $response){
+        $this->nsPathRoute('{dir}', App::$ignore_php_ext ? '{uri}/?' : '{uri}(\.php)?/?', [
+            'methods' => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH']
+        ], function($dir, $uri, $response){
             $g = G::instance();
-            // elog("Directory: $dir, URI: $uri");
+            elog("Directory: $dir, URI: $uri");
+            # if uri ends with .php remove it
+            if (substr($uri, -4) == '.php') {
+                $uri = substr($uri, 0, -4);
+            }
             $abs_file = realpath(self::$cwd."/public/".$dir.'/'.$uri.'.php');
-            // elog("Abs File: $abs_file");
             if(file_exists($abs_file)){
                 if ($this->includeCheck($abs_file)){
                     $g->server['PHP_SELF'] = '/'.$dir.'/'.$uri.'.php';
-                    // if(self::$superglobals){
-                    //     $_SERVER['PHP_SELF'] =  $g->server['PHP_SELF'];
-                    // }
-                    include $abs_file;
+                    $g->server['SCRIPT_NAME'] = '/'.$dir.'/'.$uri.'.php';
+                    $g->server['SCRIPT_FILENAME'] = $abs_file;
+                    // include $abs_file;
+                    if(self::$coproc_implicit_request_handler){
+                        echo prefork_request_handler(function() use ($abs_file){
+                            // throw new \Exception("Include: $abs_file");
+                            include $abs_file;
+                        });
+                    } else {
+                        include $abs_file;
+                    }
                 } else {
                     echo("<pre>403 Forbidden</pre>");
                     return(403);
@@ -509,10 +612,16 @@ class App
                 if(file_exists($abs_path)){
                     if ($this->includeCheck($abs_path)){
                         $g->server['PHP_SELF'] = '/'.$dir.'/'.$uri.'/index.php';
-                        // if(self::$superglobals){
-                        //     $_SERVER['PHP_SELF'] =  $g->server['PHP_SELF'];
-                        // }
-                        include $abs_path;
+                        $g->server['SCRIPT_NAME'] = '/'.$dir.'/'.$uri.'/index.php';
+                        $g->server['SCRIPT_FILENAME'] = $abs_path;
+                        if(self::$coproc_implicit_request_handler){
+                            echo prefork_request_handler(function() use ($abs_path){
+                                // throw new \Exception("Include: $abs_path");
+                                include $abs_path;
+                            });
+                        } else {
+                            include $abs_path;
+                        }
                     } else {
                         echo("<pre>403 Forbidden</pre>");
                         return(403);
@@ -559,13 +668,14 @@ class App
 
         $SessionManager = self::$superglobals ?  'ZealPHP\Session\SessionManager' : 'ZealPHP\Session\CoSessionManager';
 
-        self::$middleware_stack = (new StackHandler())
-        ->add(new ResponseMiddleware())
-        ->add(new LoggingMiddleware());
+        foreach (array_reverse(self::$middleware_wait_stack) as $middleware) {
+            elog("Registering middleware: ".get_class($middleware));
+            self::$middleware_stack = self::$middleware_stack->add($middleware);
+        }
 
         $server->on("request",new $SessionManager(function(\ZealPHP\HTTP\Request $request, \ZealPHP\HTTP\Response $response) use ($server) {
-            
             $g = G::instance();
+            $g->status = 200; //Unless changed by the handler
             // $_GET alternative
             $g->get = $request->get ?? [];
             // $_POST alternative
@@ -598,10 +708,17 @@ class App
                 }
             }
 
+
             // Common server vars typically set by web servers:
             if (!isset($g->server['REQUEST_METHOD'])) {
                 $g->server['REQUEST_METHOD'] = 'GET';
             }
+
+            // Check if X-HTTP-Method-Override header is present
+            if ($g->server['REQUEST_METHOD'] === 'POST' && !empty($_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE'])) {
+                $g->server['REQUEST_METHOD'] = $g->server['HTTP_X_HTTP_METHOD_OVERRIDE'];
+            }
+
             if (!isset($g->server['REQUEST_URI'])) {
                 $g->server['REQUEST_URI'] = '/';
             }
@@ -615,16 +732,35 @@ class App
                 $g->server['DOCUMENT_ROOT'] = self::$cwd . '/public';
             }
             if (!isset($g->server['PHP_SELF'])) {
-                $g->server['PHP_SELF'] = '/app.php';
+                $g->server['PHP_SELF'] = App::$default_php_self;
             }
-            $g->openswoole_request = $request;
-            $g->openswoole_response = $response;
-            // elog("SwooleHandler ".get_current_render_time());
-            // TODO: PSR Takes over 0.00040 seconds, see if something can be done about it.
+
+            if (!isset($g->server['SCRIPT_FILENAME'])) {
+                $g->server['SCRIPT_FILENAME'] = $g->server['DOCUMENT_ROOT'] . $g->server['PHP_SELF'];
+            }
+
+            if (!isset($g->server['SERVER_SOFTWARE'])) {
+                $g->server['SERVER_SOFTWARE'] = 'ZealPHP/dev (' . php_uname('s') . ') PHP/' . phpversion();
+            }
+
             $serverRequest  = \OpenSwoole\Core\Psr\ServerRequest::from($request->parent);
-            $serverResponse = App::middleware()->handle($serverRequest);
-            // elog("PSRResponse ".get_current_render_time());
-            \OpenSwoole\Core\Psr\Response::emit($response->parent, $serverResponse->withHeader('X-Powered-By', 'ZealPHP + OpenSwoole'));
+
+            try {
+                $serverResponse = App::middleware()->handle($serverRequest);
+                access_log($serverResponse->getStatusCode(), strlen($serverResponse->getBody()));
+                $response->flush();
+                \OpenSwoole\Core\Psr\Response::emit($response->parent, $serverResponse->withHeader('X-Powered-By', 'ZealPHP + OpenSwoole'));
+            } catch (\Throwable|\OpenSwoole\ExitException $e) {
+                elog(jTraceEx($e), "error");
+                $response->parent->status(500);                    
+                if (App::$display_errors) {
+                    $g->status = 500;
+                    $response->parent->end("<pre>".jTraceEx($e)."</pre>");
+                } else {
+                    $g->status = 500;
+                    $response->parent->end("<pre> Internal Server Error </pre>");
+                }
+            }
         }));
 
         elog("ZealPHP server running at http://{$this->host}:{$this->port} with ".count($this->routes)." routes");
@@ -640,12 +776,14 @@ class ResponseMiddleware implements MiddlewareInterface
 {
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
+        // elog("ResponseMiddleware process()");
+        stream_wrapper_unregister("php");
+        stream_wrapper_register("php", \ZealPHP\IOStreamWrapper::class);
         $g = G::instance();
         $uri = $g->server['REQUEST_URI'];
         $method = $g->server['REQUEST_METHOD'];
-
         $app = App::instance();
-        foreach ($app->getRoutes() as $route) {
+        foreach ($app->routes() as $route) {
             // Check if method matches
             if (!in_array($method, $route['methods'])) {
                 continue;
@@ -686,20 +824,35 @@ class ResponseMiddleware implements MiddlewareInterface
                     if(is_int($object)){
                         $status = (int)$object;
                     } else {
-                        $status = null;
+                        $status = $g->status ?? 200;;
                     }
-
-                    if($status == null){
-                        $status = $g->status ?? 200;
-                    }
-                    $buffer = ob_get_clean();
 
                     if($object instanceof ResponseInterface){
+                        ob_end_clean();
+                        $body = $object->getBody();
+                        $body->rewind();
+                        elog("ResponseMiddleware process() received ResponseInterface > ".$body->getContents());
                         return $object;
                     }
 
+                    if(is_array($object) or is_object($object)){
+                        response_add_header('Content-Type', 'application/json');
+                        echo json_encode($object, JSON_PRETTY_PRINT);
+                    } else if (is_string($object)){
+                        echo $object;
+                    }
+
+                    $buffer = ob_get_clean();
                     return (new Response($buffer, $status));
-                } catch (\Exception $e) {
+                } catch (\Throwable|\OpenSwoole\ExitException $e) {
+                    if($e instanceof \OpenSwoole\ExitException){
+                        if($e->getStatus() == 0){
+                            elog("HTTP Status: ".$g->status);
+                            return (new Response(ob_get_clean()))->withStatus($g->status ?? 200);
+                        } else {
+                            return (new Response(ob_get_clean()))->withStatus(500);
+                        }
+                    }
                     elog(jTraceEx($e), "error");
                     if (App::$display_errors) {
                         // print the error message to the error log
@@ -715,26 +868,71 @@ class ResponseMiddleware implements MiddlewareInterface
     }
 }
 
-class LoggingMiddleware implements MiddlewareInterface
+// class LoggingMiddleware implements MiddlewareInterface
+// {
+//     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+//     {
+//         $response = $handler->handle($request);
+//         // elog("LoggingMiddleware process() received:".$response->getBody());
+//         access_log($response->getStatusCode(), strlen($response->getBody()));
+//         return $response;
+//     }
+// }
+
+class TemplateUnavailableException extends \Exception {
+
+	protected $message = "The template you are trying to include does not seem to exist. Please check the file name.
+	Invalid error message. ";
+	protected $code = 1002;
+
+	public function __construct($message) {
+		$this->message = $message;
+		parent::__construct($this->message, $this->code);
+	}
+
+	public function __toString() {
+		return __CLASS__ . ": [{$this->code}]: {$this->message}\n";
+	}
+
+}
+
+
+class LocationHeaderMiddleware implements MiddlewareInterface
 {
+    private $correctPort;
+
+    public function __construct($correctPort)
+    {
+        $this->correctPort = $correctPort;
+    }
+
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $response = $handler->handle($request);
-        access_log($response->getStatusCode(), strlen($response->getBody()));
+
+        if ($response->hasHeader('Location')) {
+            $location = $response->getHeaderLine('Location');
+            $parsedUrl = parse_url($location);
+
+            if (isset($parsedUrl['host']) && isset($parsedUrl['port']) && $parsedUrl['port'] != $this->correctPort) {
+                $parsedUrl['port'] = $this->correctPort;
+                $newLocation = $this->buildUrl($parsedUrl);
+                $response = $response->withHeader('Location', $newLocation);
+            }
+        }
+
         return $response;
     }
-}
 
-class MiddlewareB implements MiddlewareInterface
-{
-    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    private function buildUrl($parsedUrl)
     {
-        $requestBody = $request->getBody();
-        var_dump('B1');
-        $response = $handler->handle($request);
-        var_dump('B2');
-        return $response;
+        $scheme   = isset($parsedUrl['scheme']) ? $parsedUrl['scheme'] . '://' : '';
+        $host     = isset($parsedUrl['host']) ? $parsedUrl['host'] : '';
+        $port     = isset($parsedUrl['port']) ? ':' . $parsedUrl['port'] : '';
+        $path     = isset($parsedUrl['path']) ? $parsedUrl['path'] : '';
+        $query    = isset($parsedUrl['query']) ? '?' . $parsedUrl['query'] : '';
+        $fragment = isset($parsedUrl['fragment']) ? '#' . $parsedUrl['fragment'] : '';
+
+        return "$scheme$host$port$path$query$fragment";
     }
 }
-
-  

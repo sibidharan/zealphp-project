@@ -1,6 +1,7 @@
 <?php
 namespace ZealPHP;
 use ZealPHP\G;
+use ZealPHP\StringUtils;
 
 /**
  * Session class is a bunch of static methods helpful for easy handling of the session.
@@ -149,26 +150,8 @@ class Session
         }
     }
 
-    // /**
-    //  * Masked by the cdn() method defined at Init.php, this method generates the CacheCDN url for the provided URI.
-    //  * @param  String $url
-    //  * @return String
-    //  */
-    // public static function cacheCDN($url) {
-    // 	$result = new Url($url);
-    // 	$result->append('_', Session::$version);
-    // 	$result = $result->getAbsoluteUrl(Session::$cacheCDN);
-    // 	return $result;
-    // }
-
     public static function getUser()
     {
-        // if(is_array(Session::$userSession)) {
-        //     throw new Exception('getUser method not found in Session::$userSession');
-        // }
-        // if (!method_exists(Session::$userSession, 'getUser')) {
-        //     throw new Exception('getUser method not found in Session::$userSession');
-        // }
         $us = Session::getUserSession();
         if (is_array($us)) {
             if ($us['env'] == "worker") {
@@ -274,49 +257,6 @@ class Session
     }
 
     /**
-     * Returns the current executing script name without extenstion
-     * @return String
-     */
-    public static function getCurrentFile($file = null)
-    {
-        $g = G::instance();
-        if ($file == null) {
-            $tokens = explode('/', $g->server['PHP_SELF']);
-            // Console::log($g->server);
-            $currentFile = array_pop($tokens);
-            $currentFile = explode('.', $currentFile);
-            array_pop($currentFile);
-            $currentFile = implode('.', $currentFile);
-            return $currentFile;
-        } else {
-            return basename($file, '.php');
-        }
-    }
-
-    public static function getCurrentTab()
-    {
-        $g = G::instance();
-        return $g->get['tab'];
-    }
-
-    public static function getCurrentPage()
-    {
-        $g = G::instance();
-        return $g->get['page'];
-    }
-
-    public static function getCurrentLocation()
-    {
-        $g = G::instance();
-        return basename($g->server['REDIRECT_URL']);
-    }
-
-    public function getEnvironment()
-    {
-        return $this->environment;
-    }
-
-    /**
      * Set generated at the WebAPI on the page load. It is one of the first things to get processed. If cookie information is present, it automatically generates all the session information about the current user(if logged in).
      *
      * @param  UserSession  $userSession  Generated at the WebAPI on the page load. It is one of the first things to get processed. If cookie information is present, it automatically generates all the session information about the current user(if logged in).
@@ -334,66 +274,5 @@ class Session
         return Session::$authStatus == 'success';
     }
 
-}
-
-class TemplateUnavailableException extends \Exception {
-
-	protected $message = "The template you are trying to include does not seem to exist. Please check the file name.
-	Invalid error message. ";
-	protected $code = 1002;
-
-	public function __construct($message) {
-		$this->message = $message;
-		parent::__construct($this->message, $this->code);
-	}
-
-	public function __toString() {
-		return __CLASS__ . ": [{$this->code}]: {$this->message}\n";
-	}
-
-}
-
-class StringUtils
-{
-    public static function str_starts_with($haystack, $needle)
-    {
-        $length = strlen($needle);
-        return (substr($haystack, 0, $length) === $needle);
-    }
-
-    public static function str_ends_with($haystack, $needle)
-    {
-        $length = strlen($needle);
-        if ($length == 0) {
-            return true;
-        }
-        return (substr($haystack, -$length) === $needle);
-    }
-
-    /**
-    * A general method used to ger the string between two index locations.
-    * @param  String $string
-    * @param  Integer $start
-    * @param  Integer $end
-    * @return String         The sliced string.
-    */
-    public static function get_string_between($string, $start, $end)
-    {
-        $string = ' ' . $string;
-        $ini = strpos($string, (int)$start);
-        if ($ini == 0) {
-            return '';
-        }
-
-        $ini += strlen((int)$start);
-        $len = strpos($string, (int)$end, $ini) - $ini;
-        return substr($string, $ini, $len);
-    }
-
-
-   public static function str_contains($haystack, $needle)
-   {
-       return strpos($haystack, $needle) !== false;
-   }
 }
 

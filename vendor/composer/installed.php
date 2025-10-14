@@ -3,7 +3,7 @@
         'name' => 'sibidharan/zealphp-project',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '3ba405c3448b268c374c8510c367120bcc172fc5',
+        'reference' => 'ae220e3a23f90be7e96eb0e2afe9c415b0da687b',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -62,7 +62,7 @@
         'sibidharan/zealphp' => array(
             'pretty_version' => 'dev-master',
             'version' => 'dev-master',
-            'reference' => '92fa99424dfa163f2d01502cbd93ae79ac6cc807',
+            'reference' => 'ac7c6ab8cc6d050de6675ab4af205278371c67b6',
             'type' => 'library',
             'install_path' => __DIR__ . '/../sibidharan/zealphp',
             'aliases' => array(
@@ -73,18 +73,9 @@
         'sibidharan/zealphp-project' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '3ba405c3448b268c374c8510c367120bcc172fc5',
+            'reference' => 'ae220e3a23f90be7e96eb0e2afe9c415b0da687b',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
-            'aliases' => array(),
-            'dev_requirement' => false,
-        ),
-        'swoole/ide-helper' => array(
-            'pretty_version' => '5.0.3',
-            'version' => '5.0.3.0',
-            'reference' => '4b6e615cb27c251b6248b8bd9501edbd02a45c18',
-            'type' => 'library',
-            'install_path' => __DIR__ . '/../swoole/ide-helper',
             'aliases' => array(),
             'dev_requirement' => false,
         ),

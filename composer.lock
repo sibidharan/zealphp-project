@@ -290,20 +290,19 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/sibidharan/zealphp.git",
-                "reference": "92fa99424dfa163f2d01502cbd93ae79ac6cc807"
+                "reference": "ac7c6ab8cc6d050de6675ab4af205278371c67b6"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/92fa99424dfa163f2d01502cbd93ae79ac6cc807",
-                "reference": "92fa99424dfa163f2d01502cbd93ae79ac6cc807",
+                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/ac7c6ab8cc6d050de6675ab4af205278371c67b6",
+                "reference": "ac7c6ab8cc6d050de6675ab4af205278371c67b6",
                 "shasum": ""
             },
             "require": {
                 "openswoole/core": "~22.1.5",
                 "openswoole/ide-helper": "~22.0.1",
-                "php": ">=7.4",
-                "psr/http-message": "^1.1",
-                "swoole/ide-helper": "~5.0.0"
+                "php": ">=8.3",
+                "psr/http-message": "^1.1"
             },
             "default-branch": true,
             "type": "library",
@@ -331,39 +330,7 @@
                 "issues": "https://github.com/sibidharan/zealphp/issues",
                 "source": "https://github.com/sibidharan/zealphp/tree/master"
             },
-            "time": "2024-12-17T18:32:10+00:00"
-        },
-        {
-            "name": "swoole/ide-helper",
-            "version": "5.0.3",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/swoole/ide-helper.git",
-                "reference": "4b6e615cb27c251b6248b8bd9501edbd02a45c18"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/swoole/ide-helper/zipball/4b6e615cb27c251b6248b8bd9501edbd02a45c18",
-                "reference": "4b6e615cb27c251b6248b8bd9501edbd02a45c18",
-                "shasum": ""
-            },
-            "type": "library",
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "Apache-2.0"
-            ],
-            "authors": [
-                {
-                    "name": "Team Swoole",
-                    "email": "team@swoole.com"
-                }
-            ],
-            "description": "IDE help files for Swoole.",
-            "support": {
-                "issues": "https://github.com/swoole/ide-helper/issues",
-                "source": "https://github.com/swoole/ide-helper/tree/5.0.3"
-            },
-            "time": "2023-04-28T22:20:18+00:00"
+            "time": "2025-10-12T12:54:11+00:00"
         }
     ],
     "packages-dev": [],
@@ -376,5 +343,5 @@
     "prefer-lowest": false,
     "platform": [],
     "platform-dev": [],
-    "plugin-api-version": "2.3.0"
+    "plugin-api-version": "2.6.0"
 }

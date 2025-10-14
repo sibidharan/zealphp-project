@@ -7,11 +7,13 @@ use function ZealPHP\response_set_status;
 class Response
 {
     public \OpenSwoole\Http\Response $parent;
-
-    private $statusCode;
     public function __construct(\OpenSwoole\Http\Response $response)
     {
         $this->parent = $response;
+        $g = \ZealPHP\G::instance();
+        $g->response_headers_list = [];
+        $g->response_cookies_list = [];
+        $g->response_rawcookies_list = [];
     }
 
     // Magic method to forward method calls to the parent
@@ -71,7 +73,26 @@ class Response
     // You can override methods if necessary or add more custom methods
     public function header(string $key, string $value): bool
     {
-        return $this->parent->header($key, $value);
+        $g = \ZealPHP\G::instance();
+        $g->response_headers_list[] = [$key, $value];
+        if(strtolower($key) == 'location' && $value){
+            $g->status = 302;
+        }
+        return true;
+    }
+
+    public function cookie(string $key, string $value = '', int $expire = 0, string $path = '/', string $domain = '', bool $secure = false, bool $httponly = false, string $samesite = '', string $priority = ''): bool
+    {
+        $g = \ZealPHP\G::instance();
+        $g->response_cookies_list[] = [$key, $value, $expire, $path, $domain, $secure, $httponly, $samesite, $priority];
+        return true;
+    }
+
+    public function rawCookie(string $key, string $value = '', int $expire = 0, string $path = '/', string $domain = '', bool $secure = false, bool $httponly = false, string $samesite = '', string $priority = ''): bool
+    {
+        $g = \ZealPHP\G::instance();
+        $g->response_rawcookies_list[] = [$key, $value, $expire, $path, $domain, $secure, $httponly, $samesite, $priority];
+        return true;
     }
 
     public function end(?string $data = null): bool
@@ -79,5 +100,26 @@ class Response
         return $this->parent->end($data);
     }
 
-    // Include any other methods you need to forward explicitly if required
+    public function flush(): bool
+    {
+        if($this->parent->isWritable()){
+            $g = \ZealPHP\G::instance();
+            foreach ($g->response_headers_list as $header) {
+                $this->parent->header(...$header);
+            }
+            foreach ($g->response_cookies_list as $cookie) {
+                $this->parent->cookie(...$cookie);
+            }
+            foreach ($g->response_rawcookies_list as $cookie) {
+                $this->parent->rawCookie(...$cookie);
+            }
+            $g->response_headers_list = [];
+            $g->response_cookies_list = [];
+            $g->response_rawcookies_list = [];
+            $g->status = null;
+            return true;
+        } else {
+            return false;
+        }
+    }
 }

@@ -18,35 +18,43 @@ Features:
 # Get Started
 
 ## 1. Install OpenSwoole - PHP Server with Asynchronous IO
-We will install some dependencies before configuring OpenSwoole. 
+Before configuring OpenSwoole, we need to install its dependencies. 
 
+**It is highly recommended to run `apt update` to refresh the system’s package index.** This ensures all package versions are up-to-date and avoids installation errors.
+
+Install the GCC Compiler
 ```
-#!/bin/bash
-
-# Install the GCC Compiler
-sudo apt install gcc
-
-# Required for PECL installation and manual OpenSwoole compilation
-sudo apt install php-dev
-
-# Main requirements for OpenSwoole and useful packages
-sudo apt install openssl
-sudo apt install libssl-dev
-sudo apt install curl
-sudo apt install libcurl4-openssl-dev
-sudo apt install libpcre3-dev
-sudo apt install build-essential
+$ sudo apt install gcc
+```
+Required for PECL installation and manual OpenSwoole compilation
+```
+$ sudo apt install php-dev
+```
+Main requirements for OpenSwoole and useful packages
+```
+$ sudo apt install openssl libssl-dev curl libcurl4-openssl-dev libpcre3-dev build-essential php8.3-mysqlnd postgresql libpq-dev
 ```
 
 Now lets install OpenSwoole. Compared with other async programming frameworks or software such as Nginx, Tornado, Node.js, Open Swoole is a complete async solution that has built-in support for async programming via fibers/coroutines, a range of multi-threaded I/O modules (HTTP Server, WebSockets, GRPC, TaskWorkers, Process Pools) and support for popular PHP clients like PDO for MySQL, Redis and CURL.
 
-ZealPHP uses OpenSwoole and offers a Web Development Framework that offers APIs, Routes, Sessions, Superglobals, Impicit Routing, Templating, Dynamic Injection, Dynamic HTML Streaming and much more that brings modern web development paradigms for your favorite language. 
+ZealPHP uses OpenSwoole and offers a Web Development Framework that offers APIs, Routes, Sessions, Superglobals, Impicit Routing, Templating, Dynamic Injection, Dynamic HTML Streaming and much more that brings modern web development paradigms for your favorite language. ZealPHP also overrides some of PHP's inbuilt functions, for this to work, we use `uopz` extension and it is needed for ZealPHP to work. This wont take much longer to install, so before installing openswoole, lets install this.
+
+### Install uopz
+
+`uopz` is a PECL extension that allows for the manipulation of user-defined functions and classes. It is useful for testing and debugging by allowing you to mock functions and classes. In ZealPHP, we use the `uopz` library to override built-in PHP functions such as `header` and `setcookie` within the ZealPHP context.
+
+```
+$ sudo pecl install uopz
+```
+
+### Install OpenSwoole
 
 Installation of OpenSwoole will take a while, grab a cup of coffee ☕
 
 ```
 $ sudo pecl install openswoole-22.1.2
 ```
+
 Now the building process will start, and within seconds you need to answer a few questions as follows for the compiling to begin. Compilation will take sometime depending on your CPU.
 
 ```
@@ -55,7 +63,7 @@ enable openssl support? [no] : yes
 enable http2 protocol? [no] : yes
 enable coroutine mysqlnd? [no] : yes
 enable coroutine curl? [no] : yes
-enable coroutine postgres? [no] : no
+enable coroutine postgres? [no] : yes
 ```
 
 After a lot of console messages, the build process should end with these messages
@@ -70,16 +78,17 @@ configuration option "php_ini" is not set to php.ini location
 You should add "extension=openswoole.so" to php.ini
 ```
 
-According to your PHP version, you simply need to add `extension=openswoole.so` in your php.ini file. I am using PHP 8.3 in this case.
+According to your PHP version, you simply need to add `extension=openswoole.so` and `extension=uopz.so` in your php.ini file. I am using PHP 8.3 in this case.
 
 ```
-cd /etc/php/8.3/cli/conf.d
-touch 99-zealphp-swoole.ini
-echo "extension=openswoole.so" | sudo tee -a /etc/php/8.3/cli/conf.d/99-zealphp-swoole.ini
+$ cd /etc/php/8.3/cli/conf.d
 
-# Enable Short Open Tags for Flexiblity
-echo "short_open_tag=on" | sudo tee -a /etc/php/8.3/cli/conf.d/99-zealphp-swoole.ini
+$ sudo touch 99-zealphp-openswoole.ini
+$ echo "extension=openswoole.so" | sudo tee -a /etc/php/8.3/cli/conf.d/99-zealphp-openswoole.ini
+$ echo "extension=uopz.so" | sudo tee -a /etc/php/8.3/cli/conf.d/99-zealphp-openswoole.ini
 
+# Enable Short Open Tags for Flexibility
+$ echo "short_open_tag=on" | sudo tee -a /etc/php/8.3/cli/conf.d/99-zealphp-openswoole.ini
 ```
 
 We are good to go. Let's check if the setup is working. 
@@ -87,15 +96,17 @@ We are good to go. Let's check if the setup is working.
 ```
 $ php -m | grep openswoole
 openswoole
+$ php -m | grep uopz
+uopz
 ```
 
-If it prints `openswoole` then the module is loaded and is ready to go. 
+If it prints `openswoole` and `uopz` then the modules are loaded and are ready to go. 
 
 ## 2. Installing Composer (skip if already done)
 
 We are going to rely on `composer`. So install it if not already done.
 ```
-sudo apt install composer 
+$ sudo apt install composer 
 ```
 Now lets get started. 
 
@@ -103,20 +114,25 @@ Now lets get started.
 
 To create a new project from our go-to template, replace `my-project` with your project name and execute the below composer command. Since this project is in development, use `--stability=dev` until we arrive at a stable version.  
 
+**Note: Ensure you are in the correct directory**
+
+Before running the command, make sure you navigate to the directory where you want to save your project.
+
 ```
-composer create-project --stability=dev sibidharan/zealphp-project my-project 
+$ composer create-project --stability=dev sibidharan/zealphp-project my-project 
 ```
 
 With composer installed, lets run our ZealPHP Project
 
 ```
-cd my-project
-php app.php 
-Including route file: /var/labsstorage/home/sibidharan/test/my-project/route/info.php
+$ cd my-project
+$ composer update
+$ php app.php 
+
 ZealPHP server running at http://0.0.0.0:8080 with 8 routes
 ```
 
-## 4. Understanding what is happenning
+## 4. Understanding what is happening
 
 When you run `app.php` the openswoole server is being run and managed by ZealPHP. It will stay attached to your terminal unless you deamonize, which we wont be doing while development. When moving to production, you can do `$app->run(['daemonize'=>true])` to the run function, which detaches the running script in background. This can be configured to systemctl to run on boot, or to run behind Apache or Nginx. The `run` function can take all OpenSwoole Configuration as mentioned in https://openswoole.com/docs/modules/swoole-server/configuration. Unlike Apache+PHP setup, the functions of Apache like URL Rewriting, Superglobals is replaced by ZealPHP, while OpenSwoole is offering the server. ZealPHP is offering the routing with a very efficient route tree model, which is O(1) in code injection and lookup. On top of that, ZealPHP offers implicit routes that serves the files located under `public` and `api` directories. These routes can be overridden by you.
 
@@ -126,7 +142,7 @@ You can start writing APIs out of the box without any additional configuration. 
 
 Any and all contributions are welcome ❤️
 
-# ZealPHP Design Principals
+# ZealPHP Design Principles
 
 - Integrating OpenSwoole is a very good move but reaping the full performance of the coroutines and still being able to run an Apache/FPM styled web server with powerful in-memory dynamic nested ZealPHP template render functions while reconstructing superglobals on top of all these comes with a cost. The ZealPHP Server won't enable coroutines for the HTTP server by default, so the main response thread can't run `go()` calls. Instead of the server processes sharing the superglobal memory while running coroutines, we disable coroutines for the server process. To understand what is happening, let's say if a main thread is waiting for an IO or sleeping, the same server worker process will be used to serve another request. This new request will cause the superglobals to overwrite the ones waiting for IO and cause data leak/corruption. We decide to disable coroutines in the main thread, which enables us to support PHP superglobals in an Apache styled way.
 
@@ -162,7 +178,7 @@ Stack trace:
 3. Check if openswoole is configured properly
     ` php -m | grep swoole `
 
-Uptil this `setup.sh` can do it for you. 
+Until this point, the `setup.sh` can do it for you. 
 
 4. Run 
     `php app.php`

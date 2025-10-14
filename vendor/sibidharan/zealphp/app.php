@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/vendor/autoload.php';
 
+date_default_timezone_set('Asia/Kolkata');
 use OpenSwoole\Core\Psr\Response;
 use OpenSwoole\Coroutine as co;
 use OpenSwoole\Coroutine\Channel;
@@ -12,15 +13,96 @@ use function ZealPHP\elog;
 use function ZealPHP\response_add_header;
 use function ZealPHP\response_set_status;
 use function ZealPHP\zlog;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 
-App::superglobals(false);
+class AuthenticationMiddleware implements MiddlewareInterface
+{
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        elog("AuthenticationMiddleware: process()");
+        $g = G::instance();
+        $g->session['test'] = 'test';
+        return $handler->handle($request);
+        // return new Response('Forbidden', 403, 'success', ['Content-Type' => 'text/plain']);
+    }
+}
+
+class ValidationMiddleware implements MiddlewareInterface
+{
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        elog("Validation: process()");
+        $g = G::instance();
+        ob_start();
+        print_r($request->getQueryParams());
+        $data = ob_get_clean();
+        // elog($data, "validate");;
+        $g->session['validate'] = 'test';
+        return $handler->handle($request);
+    }
+}
+
+App::superglobals(true);
 
 $app = App::init('0.0.0.0', 8080);
-
+$app->addMiddleware(new AuthenticationMiddleware());
+$app->addMiddleware(new ValidationMiddleware());
+elog("Middleware added");
 # Route for /phpinfo 
 $app->route('/phpinfo', function() {
-    //Loads template from app/phpinfo.php since PHP_SELF is /phpinfo.php
+    //Loads template from app/phpinfo.php since PHP_SELF is /app.php
     App::render('phpinfo');
+});
+
+$app->route('/json', function($request) {
+    // echo "<h1>Test</h1>";
+    return $_SESSION;
+});
+
+$app->route('/stream_test',[
+    'methods' => ['GET', 'PUT']
+], function($request) {
+        // Original data
+    $originalData = "ZealPHP is awesome!!!";
+    // $stream = \OpenSwoole\Core\Psr\Stream::streamFor("Test Data");
+    // elog($stream->read(10), "streamio_psr");
+    $stream = fopen('php://memory', 'r+');
+    $resource = $originalData;
+    if ($resource !== '') {
+        fwrite($stream, (string) $resource);
+        fseek($stream, 0);
+    }
+    $data = stream_get_contents($stream);
+    elog("Stream Data: $data");
+    // Step 1: Base64 Encoding
+    $stream = fopen('php://memory', 'w+');
+    $encodedStream = fopen('php://filter/write=convert.base64-encode/resource=php://memory', 'w+');
+    fwrite($encodedStream, $originalData);
+    rewind($encodedStream);
+    $base64Encoded = stream_get_contents($encodedStream);
+    fseek($encodedStream, 0);
+    fclose($encodedStream);
+    elog("Base64 Encoded:\n$base64Encoded\n");
+
+    // Step 2: Base64 Decoding
+    rewind($stream); // Reset the stream position
+    $decodedStream = fopen('php://filter/read=convert.base64-decode/resource=php://memory', 'r');
+    $decodedStream = fopen('php://filter/read=convert.base64-decode/resource=php://memory', 'w+');
+    fwrite($decodedStream, $base64Encoded);
+    rewind($decodedStream);
+    $decodedData = stream_get_contents($decodedStream);
+    elog("Base64 Decoded:\n$decodedData\n");
+    // Close the streams
+    fclose($stream);
+    fclose($decodedStream);
+
+    $file = file_get_contents('php://input');
+    elog("php://input file_get_contents(): ".$file);
+
+    return new Response('Stream Test: '.$file, 200, 'success', ['Content-Type' => 'text/plain']);
 });
 
 
@@ -64,6 +146,7 @@ $app->route('/quiz/{page}', function($page) {
 });
 
 $app->route('/quiz/{page}/{tab}/{nwe}', function($nwe, $tab, $page) {
+
     echo "<h1>This is quiz: $page tab=$tab</h1>";
 });
 
@@ -75,6 +158,10 @@ $app->route('/quiz/{page}/{tab}/{nwe}', function($nwe, $tab, $page) {
 //     echo "<h1>Hello, $self->get $name!</h1>";
 // });
 
+$app->route('/sessleak', function(){
+
+});
+
 $app->route("/suglobal/{name}", [
     'methods' => ['GET', 'POST']
 ],function($name) {
@@ -85,16 +172,34 @@ $app->route("/suglobal/{name}", [
         if (isset($GLOBALS[$name])) {
             print_r($GLOBALS[$name]);
         } else{
-            echo "Unknown superglobal";
+            echo "Unknown superglobal $name";
         }
     } else {
         $g = G::instance();
         if (isset($g->$name)) {
             print_r($g->$name);
         } else{
-            echo "Unknown global";
+            echo "Unknown global $name";
         }
     }
+});
+
+$app->route("/header", [
+    'methods' => ['GET', 'POST']
+],function() {
+    header('Content-Type: text/plain');
+    header('X-Test: foo');
+    setcookie('test', 'test');
+    header("Location: https://example.com");
+
+    return $_SERVER;
+});
+
+$app->route("/exittest", [
+    'methods' => ['GET', 'POST']
+],function() {
+    echo "Exiting...";
+    exit(1);
 });
 
 $app->route("/coglobal/set/session", [
@@ -105,7 +210,7 @@ $app->route("/coglobal/set/session", [
     return new Response('Session set', 300, 'success', ['Content-Type' => 'text/plain', 'X-Test' => 'test']);
 });
 
-$app->route("/coglobal/get/session", [
+$app->route("/coglobal/get/{name}", [
     'methods' => ['GET', 'POST']
 ],function($name) {
     echo G::get('session')['name'];
