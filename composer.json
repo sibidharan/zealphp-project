@@ -14,8 +14,7 @@
             "email": "sibidharan@icloud.com"
         }
     ],
-    "minimum-stability": "dev",
     "require": {
-        "sibidharan/zealphp": "dev-master"
+        "sibidharan/zealphp": "^0.1"
     }
 }
