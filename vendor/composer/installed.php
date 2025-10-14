@@ -3,7 +3,7 @@
         'name' => 'sibidharan/zealphp-project',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => 'ae220e3a23f90be7e96eb0e2afe9c415b0da687b',
+        'reference' => '95411171c7a1afc9b78a5cb8c4424c32445dc19e',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -62,7 +62,7 @@
         'sibidharan/zealphp' => array(
             'pretty_version' => 'dev-master',
             'version' => 'dev-master',
-            'reference' => 'ac7c6ab8cc6d050de6675ab4af205278371c67b6',
+            'reference' => 'cc6012829fef05e661670a19d16b2c696bf0c755',
             'type' => 'library',
             'install_path' => __DIR__ . '/../sibidharan/zealphp',
             'aliases' => array(
@@ -73,7 +73,7 @@
         'sibidharan/zealphp-project' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => 'ae220e3a23f90be7e96eb0e2afe9c415b0da687b',
+            'reference' => '95411171c7a1afc9b78a5cb8c4424c32445dc19e',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

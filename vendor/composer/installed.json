@@ -300,12 +300,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/sibidharan/zealphp.git",
-                "reference": "ac7c6ab8cc6d050de6675ab4af205278371c67b6"
+                "reference": "cc6012829fef05e661670a19d16b2c696bf0c755"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/ac7c6ab8cc6d050de6675ab4af205278371c67b6",
-                "reference": "ac7c6ab8cc6d050de6675ab4af205278371c67b6",
+                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/cc6012829fef05e661670a19d16b2c696bf0c755",
+                "reference": "cc6012829fef05e661670a19d16b2c696bf0c755",
                 "shasum": ""
             },
             "require": {
@@ -314,7 +314,7 @@
                 "php": ">=8.3",
                 "psr/http-message": "^1.1"
             },
-            "time": "2025-10-12T12:54:11+00:00",
+            "time": "2025-10-14T01:08:19+00:00",
             "default-branch": true,
             "type": "library",
             "installation-source": "dist",
@@ -338,9 +338,18 @@
                 }
             ],
             "description": "A dynamic PHP web development framework built with OpenSwoole.",
+            "homepage": "https://php.zeal.lol",
+            "keywords": [
+                "async",
+                "framework",
+                "http",
+                "openswoole",
+                "php",
+                "zealphp"
+            ],
             "support": {
                 "issues": "https://github.com/sibidharan/zealphp/issues",
-                "source": "https://github.com/sibidharan/zealphp/tree/master"
+                "source": "https://github.com/sibidharan/zealphp"
             },
             "install-path": "../sibidharan/zealphp"
         }
