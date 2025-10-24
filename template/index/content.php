@@ -19,6 +19,7 @@
             <p>
                 <?=$content?>
             </p>
+            <p> For more information, visit the <a href="https://github.com/sibidharan/zealphp.git" target="_blank">ZealPHP GitHub repository</a> and explore the documentation and examples.</p>
         </main>
 
     </div>
