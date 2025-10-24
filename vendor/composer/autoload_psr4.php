@@ -11,4 +11,5 @@ return array(
     'Psr\\Http\\Server\\' => array($vendorDir . '/psr/http-server-handler/src', $vendorDir . '/psr/http-server-middleware/src'),
     'Psr\\Http\\Message\\' => array($vendorDir . '/psr/http-message/src'),
     'OpenSwoole\\Core\\' => array($vendorDir . '/openswoole/core/src'),
+    'MyProject\\' => array($baseDir . '/src'),
 );
