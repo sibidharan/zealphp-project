@@ -30,6 +30,10 @@ class ComposerStaticInit9994867abbda5e5dcb5367a4499de518
         array (
             'OpenSwoole\\Core\\' => 16,
         ),
+        'M' => 
+        array (
+            'MyProject\\' => 10,
+        ),
     );
 
     public static $prefixDirsPsr4 = array (
@@ -53,6 +57,10 @@ class ComposerStaticInit9994867abbda5e5dcb5367a4499de518
         'OpenSwoole\\Core\\' => 
         array (
             0 => __DIR__ . '/..' . '/openswoole/core/src',
+        ),
+        'MyProject\\' => 
+        array (
+            0 => __DIR__ . '/../..' . '/src',
         ),
     );
 

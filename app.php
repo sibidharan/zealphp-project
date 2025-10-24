@@ -9,7 +9,7 @@ $app = App::init('0.0.0.0', 8080);
 # Define routes here
 
 $app->route('/hello/{name}', function($name){
-    echo "Hello, $name!";
+    App::render('/hello', ['name' => $name]);
 });
 
 $app->route('/hello', function(){
