@@ -95,8 +95,90 @@ $app->addMiddleware(new ETagMiddleware());
 return ['json' => 'data'];           // Auto JSON
 return 'plain string';               // HTML
 $response->redirect('/other', 302);  // Redirect
-$response->stream(function($write) { $write('chunk'); });  // Streaming
-$response->sse(function($emit) { $emit('data', 'event'); }); // SSE
+```
+
+### SSR Streaming
+Three patterns for streaming responses:
+```php
+// 1. Generator yield — stream HTML shell, yield sections as they resolve
+$app->route('/page', function() {
+    return (function() {
+        yield '<html><body>';
+        yield App::renderToString('header');
+        yield App::renderToString('content');  // each yield sent immediately
+        yield '</body></html>';
+    })();
+});
+
+// 2. stream() — fine-grained control via $write callback
+$app->route('/download', function($response) {
+    $response->stream(function($write) {
+        $write('chunk 1');
+        $write('chunk 2');
+    });
+});
+
+// 3. SSE (Server-Sent Events) — for EventSource clients
+$app->route('/events', function($response) {
+    $response->sse(function($emit) {
+        while (true) {
+            $emit(['time' => date('H:i:s')], 'tick');
+            sleep(1);
+        }
+    });
+});
+```
+
+`App::renderToString($template, $args)` captures a template render into a string for yielding inside streaming contexts.
+
+### WebSocket
+```php
+$app->ws('/chat',
+    onMessage: function($server, $frame, $g) {
+        // $frame->data = message text
+        // Broadcast to all connections on this path:
+        foreach ($server->getClientList(0, 100) as $fd) {
+            if ($server->isEstablished($fd)) {
+                $server->push($fd, $frame->data);
+            }
+        }
+    },
+    onOpen: function($server, $request, $g) {
+        $server->push($request->fd, 'Welcome!');
+    },
+    onClose: function($server, $fd, $g) {
+        // cleanup
+    }
+);
+```
+WebSocket\Server extends HTTP\Server — all HTTP routes still work. PING/PONG frames are handled automatically; only TEXT and BINARY reach handlers.
+
+### Timers
+```php
+// Inside onWorkerStart or a request handler:
+App::tick(5000, function() {
+    // runs every 5 seconds per worker
+});
+
+App::after(1000, function() {
+    // runs once after 1 second
+});
+```
+Must be called inside a coroutine context (onWorkerStart or request handler).
+
+### Shared Memory
+```php
+// Create BEFORE $app->run() (shared across all workers via fork)
+Store::make('cache', 1024, [
+    ['key',   Store::TYPE_STRING, 64],
+    ['value', Store::TYPE_STRING, 256],
+]);
+Store::set('cache', 'item1', ['key' => 'greeting', 'value' => 'hello']);
+$row = Store::get('cache', 'item1');
+
+// Atomic counter (lock-free)
+$hits = new Counter('hits');
+$hits->increment();
 ```
 
 ## Legacy App Support (WordPress, etc.)
