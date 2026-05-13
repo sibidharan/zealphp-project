@@ -1,0 +1,135 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+---
+
+This is a **ZealPHP application** — a PHP web app built on the ZealPHP framework (OpenSwoole-based async PHP).
+
+## Commands
+
+```bash
+# Install dependencies
+composer install
+
+# Start the dev server on :8080
+php app.php
+
+# Start on a specific port, daemonized
+php app.php start -p 9000 -d
+
+# Stop the server
+php app.php stop
+
+# Check if running
+php app.php status
+
+# Show all CLI options
+php app.php --help
+```
+
+## Project Structure
+
+```
+app.php          — Entry point: configure framework, define routes, call $app->run()
+public/          — Web root: static files (CSS, JS, images) + PHP page files
+route/           — Route files: auto-included at startup, define additional routes
+template/        — Templates: rendered via App::render('template_name', $vars)
+api/             — File-based REST API: api/data/get.php → GET /api/data
+src/             — Application classes (PSR-4 autoloaded)
+```
+
+## How ZealPHP Works
+
+### Routing
+```php
+// Flask-style routes with parameter injection
+$app->route('/user/{id}', function($id, $request, $response) {
+    return ['user_id' => $id];
+});
+
+// Namespace routes
+$app->nsRoute('admin', '/dashboard', function() { ... });
+
+// Pattern routes (regex)
+$app->patternRoute('/files/.*', function() { ... });
+```
+
+Routes are matched in order: route files → explicit routes → API routes → implicit public/ file routes.
+
+### Parameter Injection
+Handler arguments are injected by name:
+- `$request` → `ZealPHP\HTTP\Request`
+- `$response` → `ZealPHP\HTTP\Response`
+- `{param}` names → matched URL segments
+- Any name with a default → PHP default value
+
+### Templates
+```php
+// In a route handler:
+App::render('page_name', ['title' => 'Hello']);
+// Renders template/page_name.php with $title available
+```
+
+### Implicit Routes
+Files in `public/` are served automatically:
+- `public/index.php` → `/`
+- `public/about.php` → `/about`
+- `public/admin/index.php` → `/admin/`
+- Static files (CSS, JS, images) served by OpenSwoole directly
+
+### File-based API
+Files in `api/` become REST endpoints:
+- `api/users/get.php` → `GET /api/users` (must define `$get = function(...)`)
+- `api/users/post.php` → `POST /api/users`
+
+### Middleware
+```php
+$app->addMiddleware(new CorsMiddleware(['*']));
+$app->addMiddleware(new ETagMiddleware());
+// Last-added runs first (outermost)
+```
+
+### Responses
+```php
+return ['json' => 'data'];           // Auto JSON
+return 'plain string';               // HTML
+$response->redirect('/other', 302);  // Redirect
+$response->stream(function($write) { $write('chunk'); });  // Streaming
+$response->sse(function($emit) { $emit('data', 'event'); }); // SSE
+```
+
+## Legacy App Support (WordPress, etc.)
+
+To run unmodified PHP apps like WordPress:
+```php
+App::superglobals(true);       // Enable $_GET, $_POST, $_SESSION etc.
+App::$ignore_php_ext = false;  // Allow .php in URLs
+
+// Catch-all for pretty permalinks
+$app->setFallback(function() {
+    $g = G::instance();
+    $g->server['PHP_SELF'] = '/index.php';
+    $g->server['SCRIPT_NAME'] = '/index.php';
+    $g->server['SCRIPT_FILENAME'] = App::$cwd . '/public/index.php';
+    App::includeFile(App::$cwd . '/public/index.php');
+});
+```
+
+`App::includeFile()` runs PHP files in a separate process (CGI worker) for true global scope isolation.
+
+## Key Classes
+
+| Class | Purpose |
+|-------|---------|
+| `ZealPHP\App` | Framework core: routing, server lifecycle, `render()`, `includeFile()` |
+| `ZealPHP\G` | Per-request global state (`G::instance()`) |
+| `ZealPHP\HTTP\Request` | Request wrapper |
+| `ZealPHP\HTTP\Response` | Response wrapper: `stream()`, `sse()`, `redirect()`, `flush()` |
+| `ZealPHP\Store` | Cross-worker shared memory (OpenSwoole\Table) |
+| `ZealPHP\Counter` | Lock-free atomic counter |
+
+## Documentation
+
+Full docs with live demos: https://php.zeal.ninja
+API reference: https://deepwiki.com/sibidharan/zealphp
