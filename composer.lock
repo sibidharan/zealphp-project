@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "c8d58336eabf26979662ff14fe379783",
+    "content-hash": "ff4c3231c98ce931311025f9f6a10fae",
     "packages": [
         {
             "name": "openswoole/core",
@@ -284,17 +284,11 @@
         },
         {
             "name": "sibidharan/zealphp",
-            "version": "v0.1.0",
+            "version": "v0.1.1",
             "source": {
                 "type": "git",
-                "url": "https://github.com/sibidharan/zealphp.git",
-                "reference": "cc6012829fef05e661670a19d16b2c696bf0c755"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/cc6012829fef05e661670a19d16b2c696bf0c755",
-                "reference": "cc6012829fef05e661670a19d16b2c696bf0c755",
-                "shasum": ""
+                "url": "/home/sibidharan/zealphp",
+                "reference": "4359feffb90659634b9192574be8ba7917c9a163"
             },
             "require": {
                 "openswoole/core": "~22.1.5",
@@ -302,17 +296,24 @@
                 "php": ">=8.3",
                 "psr/http-message": "^1.1"
             },
+            "require-dev": {
+                "phpunit/phpunit": "^11.0"
+            },
             "type": "library",
             "autoload": {
+                "psr-4": {
+                    "ZealPHP\\": "src/"
+                },
                 "files": [
                     "src/utils.php",
                     "src/Session/utils.php"
-                ],
+                ]
+            },
+            "autoload-dev": {
                 "psr-4": {
-                    "ZealPHP\\": "src/"
+                    "ZealPHP\\Tests\\": "tests/"
                 }
             },
-            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
@@ -336,7 +337,7 @@
                 "issues": "https://github.com/sibidharan/zealphp/issues",
                 "source": "https://github.com/sibidharan/zealphp"
             },
-            "time": "2025-10-14T01:08:19+00:00"
+            "time": "2026-05-13T04:18:50+00:00"
         }
     ],
     "packages-dev": [],
@@ -347,5 +348,5 @@
     "prefer-lowest": false,
     "platform": [],
     "platform-dev": [],
-    "plugin-api-version": "2.6.0"
+    "plugin-api-version": "2.3.0"
 }
