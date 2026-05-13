@@ -64,11 +64,45 @@ Handler arguments are injected by name:
 - `{param}` names → matched URL segments
 - Any name with a default → PHP default value
 
-### Templates
+### Templates — three render methods
 ```php
-// In a route handler:
+// Direct output (void — echoes to response)
 App::render('page_name', ['title' => 'Hello']);
-// Renders template/page_name.php with $title available
+
+// Capture as string (for email, cache, or yield)
+$html = App::renderToString('page_name', ['title' => 'Hello']);
+
+// Streaming Generator (for SSR — yields chunks progressively)
+yield from App::renderStream('page_name', ['title' => 'Hello']);
+```
+
+### Streaming templates
+Templates can `yield` — return a Closure with named params, framework injects by name:
+```php
+// template/users/stream.php
+<?php return function($users) {
+    yield "<ul>";
+    foreach ($users as $user) {
+        yield "<li>{$user->name}</li>";
+    }
+    yield "</ul>";
+};
+
+// Route handler — compose streams:
+$app->route('/users', fn() => (function() {
+    yield from App::renderStream('shell-open', ['title' => 'Users']);
+    yield from App::renderStream('users/stream', ['users' => User::all()]);
+    yield from App::renderStream('shell-close');
+})());
+```
+
+### Return value conventions
+```php
+return 404;                    // int → HTTP status code
+return ['id' => 42];           // array → JSON
+return '<h1>Hello</h1>';       // string → HTML body
+return (function() { yield..; })(); // Generator → SSR streaming
+echo "Hello";                  // void+echo → output buffering
 ```
 
 ### Implicit Routes
