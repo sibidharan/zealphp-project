@@ -18,6 +18,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 class ZealAPI extends REST
 {
     public $data = "";
+    private static array $reflectionCache = [];
 
     private $api_rpc;
     private $auth = null;
@@ -43,6 +44,16 @@ class ZealAPI extends REST
         $g = G::instance();
         $module = $module ? '/'.$module : '';
         $func = basename($request);
+
+        if ($module !== '' && !preg_match('/^\/[a-zA-Z0-9_\/-]+$/', $module)) {
+            $this->response($this->json(['error' => 'invalid_module']), 400);
+            return;
+        }
+        if ($request !== null && !preg_match('/^[a-zA-Z0-9_\-]+$/', $request)) {
+            $this->response($this->json(['error' => 'invalid_request']), 400);
+            return;
+        }
+
         if (!isset($module) and (int)method_exists($this, $func) > 0) {
             $this->$func();
         } else {
@@ -50,8 +61,16 @@ class ZealAPI extends REST
                 $dir = $this->cwd.'/api'.$module;
                 $g->server['DOCUMENT_ROOT'] = App::$cwd . '/api';
                 $file = $dir.'/'.$request.'.php';
-                if (file_exists($file)) {
-                    include $file;
+
+                $apiBase = realpath($this->cwd . '/api');
+                $realFile = realpath($file);
+                if (!$realFile || !$apiBase || !str_starts_with($realFile, $apiBase . DIRECTORY_SEPARATOR)) {
+                    $this->response($this->json(['error' => 'method_not_found']), 404);
+                    return;
+                }
+
+                if (file_exists($realFile)) {
+                    include $realFile;
                     try {
                         $this->api_rpc = \Closure::bind(${$func}, $this, get_class());
                     } catch (\TypeError $e) {
@@ -60,16 +79,17 @@ class ZealAPI extends REST
                         return;
                     }
                     $g->server['PHP_SELF'] = $module.'/'.$request.'.php';
-                    if(App::$superglobals) {
-                        $_SERVER['PHP_SELF'] = $g->server['PHP_SELF'];
-                    }
                     $handler = $this->api_rpc;
-                    $reflection = is_array($handler)
-                    ? new \ReflectionMethod($handler[0], $handler[1])
-                    : new \ReflectionFunction($handler);
+                    $cacheKey = $file . ':' . $func;
+                    if (!isset(self::$reflectionCache[$cacheKey])) {
+                        $reflection = is_array($handler)
+                            ? new \ReflectionMethod($handler[0], $handler[1])
+                            : new \ReflectionFunction($handler);
+                        self::$reflectionCache[$cacheKey] = $reflection->getParameters();
+                    }
 
                     $invokeArgs = [];
-                    foreach ($reflection->getParameters() as $param) {
+                    foreach (self::$reflectionCache[$cacheKey] as $param) {
                         $pname = $param->getName();
                         if (isset($params[$pname])) {
                             $invokeArgs[] = $params[$pname];
@@ -96,6 +116,11 @@ class ZealAPI extends REST
                     }
 
                     if($object instanceof ResponseInterface){
+                        return $object;
+                    }
+
+                    if ($object instanceof \Generator) {
+                        ob_end_clean();
                         return $object;
                     }
 

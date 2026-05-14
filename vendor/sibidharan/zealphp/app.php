@@ -9,6 +9,8 @@ use OpenSwoole\Coroutine\Channel;
 use ZealPHP\App;
 use ZealPHP\G;
 
+use function ZealPHP\bench_mode_enabled;
+use function ZealPHP\env_flag;
 use function ZealPHP\elog;
 use function ZealPHP\response_add_header;
 use function ZealPHP\response_set_status;
@@ -17,6 +19,12 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use ZealPHP\Middleware\CorsMiddleware;
+use ZealPHP\Middleware\CompressionMiddleware;
+use ZealPHP\Middleware\ETagMiddleware;
+use ZealPHP\Middleware\RangeMiddleware;
+use ZealPHP\Store;
+use ZealPHP\Counter;
 
 class AuthenticationMiddleware implements MiddlewareInterface
 {
@@ -45,12 +53,39 @@ class ValidationMiddleware implements MiddlewareInterface
     }
 }
 
-App::superglobals(true);
+App::superglobals(false);
+$benchMode = bench_mode_enabled();
+$demoMiddleware = env_flag('ZEALPHP_DEMO_MIDDLEWARE', false);
+$compressionMiddleware = env_flag('ZEALPHP_COMPRESSION_MIDDLEWARE', false);
 
-$app = App::init('0.0.0.0', 8080);
-$app->addMiddleware(new AuthenticationMiddleware());
-$app->addMiddleware(new ValidationMiddleware());
-elog("Middleware added");
+$envInt = static function (string $name, int $default, int $min = 1): int {
+    $value = getenv($name);
+    if ($value === false || $value === '') {
+        return $default;
+    }
+
+    return max($min, (int) $value);
+};
+
+$appPort = $envInt('ZEALPHP_PORT', 8080);
+$app = App::init(
+    getenv('ZEALPHP_HOST') ?: '0.0.0.0',
+    $appPort
+);
+if (!$benchMode) {
+    $app->addMiddleware(new CorsMiddleware());         // outermost — handles preflight, adds Allow-Origin
+    $app->addMiddleware(new ETagMiddleware());         // generates ETag, returns 304 on cache hit
+    $app->addMiddleware(new RangeMiddleware());       // Range / 206 Partial Content (RFC 7233)
+    if ($compressionMiddleware) {
+        $app->addMiddleware(new CompressionMiddleware());
+    }
+    // Demo-only middleware. Enable with ZEALPHP_DEMO_MIDDLEWARE=1.
+    if ($demoMiddleware) {
+        $app->addMiddleware(new AuthenticationMiddleware());
+        $app->addMiddleware(new ValidationMiddleware());
+    }
+    elog("Core middleware added");
+}
 # Route for /phpinfo 
 $app->route('/phpinfo', function() {
     //Loads template from app/phpinfo.php since PHP_SELF is /app.php
@@ -58,8 +93,24 @@ $app->route('/phpinfo', function() {
 });
 
 $app->route('/json', function($request) {
-    // echo "<h1>Test</h1>";
-    return $_SESSION;
+    return G::instance()->session;
+});
+
+$app->route('/raw/bench', ['raw' => true], function() {
+    return 'You requested: bench';
+});
+
+$app->route('/bench/template', function() {
+    App::render('/bench_page', [
+        'title' => 'ZealPHP Benchmark',
+        'items' => [
+            ['name' => 'Routing', 'desc' => 'Flask-style routes'],
+            ['name' => 'Streaming', 'desc' => 'SSR via yield'],
+            ['name' => 'WebSocket', 'desc' => 'Built-in real-time'],
+            ['name' => 'Store', 'desc' => 'Shared memory'],
+            ['name' => 'Coroutines', 'desc' => 'go() + Channel'],
+        ],
+    ]);
 });
 
 $app->route('/stream_test',[
@@ -109,23 +160,23 @@ $app->route('/stream_test',[
 $app->route('/co', function() {
     $channel = new Channel(5);
     go(function() use ($channel) {
-        sleep(3);
+        co::sleep(3);
         $channel->push('Hello, Coroutine 1!');
     });
     go(function() use ($channel) {
-        sleep(3);
+        co::sleep(3);
         $channel->push('Hello, Coroutine! 2');
     });
     go(function() use ($channel) {
-        sleep(1);
+        co::sleep(1);
         $channel->push('Hello, Coroutine! 3');
     });
     go(function() use ($channel) {
-        sleep(2);
+        co::sleep(2);
         $channel->push('Hello, Coroutine! 4');
     });
     go(function() use ($channel) {
-        sleep(3);
+        co::sleep(3);
         $channel->push('Hello, Coroutine 5!');
     });
     $results = [];
@@ -192,7 +243,7 @@ $app->route("/header", [
     setcookie('test', 'test');
     header("Location: https://example.com");
 
-    return $_SERVER;
+    return G::instance()->server;
 });
 
 $app->route("/exittest", [
@@ -223,7 +274,7 @@ $app->route('/user/{id}/post/{postId}',[
 });
 
 $app->nsRoute('watch', '/get/{key}', function($key){
-    echo $_GET[$key] ?? null;
+    echo G::instance()->get[$key] ?? null;
 });
 
 // patternRoute
@@ -238,6 +289,68 @@ $app->patternRoute('/raw/(?P<rest>.*)', ['methods' => ['GET']], function($rest) 
 // });
 
 
-$app->run([
-    'task_worker_num' => 8
-]);
+$settings = [
+    'task_worker_num' => $envInt('ZEALPHP_TASK_WORKERS', 8, 0),
+];
+
+$settings['http_compression'] = env_flag('ZEALPHP_HTTP_COMPRESSION', !$compressionMiddleware);
+
+$workerNum = getenv('ZEALPHP_WORKERS');
+if ($workerNum !== false && $workerNum !== '') {
+    $settings['worker_num'] = max(1, (int) $workerNum);
+}
+
+foreach ([
+    'ZEALPHP_MAX_CONN'      => 'max_conn',
+    'ZEALPHP_MAX_COROUTINE' => 'max_coroutine',
+    'ZEALPHP_BACKLOG'       => 'backlog',
+    'ZEALPHP_REACTOR_NUM'   => 'reactor_num',
+] as $envName => $settingName) {
+    $settingValue = getenv($envName);
+    if ($settingValue !== false && $settingValue !== '') {
+        $settings[$settingName] = max(1, (int) $settingValue);
+    }
+}
+
+$pidFile = getenv('ZEALPHP_PID_FILE');
+if ($pidFile === false || trim((string) $pidFile) === '') {
+    $logDir = getenv('ZEALPHP_LOG_DIR');
+    if ($logDir === false || trim((string) $logDir) === '') {
+        $logDir = '/tmp/zealphp';
+    }
+    $pidFile = rtrim(trim((string) $logDir), '/') . '/zealphp_' . $appPort . '.pid';
+}
+$pidFile = trim((string) $pidFile);
+if ($pidFile !== '') {
+    $pidDir = dirname($pidFile);
+    if ($pidDir !== '.' && !is_dir($pidDir)) {
+        @mkdir($pidDir, 0775, true);
+    }
+    $settings['pid_file'] = $pidFile;
+}
+
+$daemonize = env_flag('ZEALPHP_DAEMONIZE', false);
+if ($daemonize) {
+    $settings['daemonize'] = true;
+}
+
+$serverLogFile = getenv('ZEALPHP_SERVER_LOG_FILE');
+if ($serverLogFile === false || $serverLogFile === '') {
+    if ($daemonize) {
+        $logDir = getenv('ZEALPHP_LOG_DIR');
+        if ($logDir === false || trim((string) $logDir) === '') {
+            $logDir = '/tmp/zealphp';
+        }
+        $serverLogFile = rtrim(trim((string) $logDir), '/') . '/server.log';
+    }
+}
+if ($serverLogFile !== false && trim((string) $serverLogFile) !== '') {
+    $serverLogFile = trim((string) $serverLogFile);
+    $serverLogDir = dirname($serverLogFile);
+    if ($serverLogDir !== '.' && !is_dir($serverLogDir)) {
+        @mkdir($serverLogDir, 0775, true);
+    }
+    $settings['log_file'] = $serverLogFile;
+}
+
+$app->run($settings);
