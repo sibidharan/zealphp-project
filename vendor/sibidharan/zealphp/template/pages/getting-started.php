@@ -5,6 +5,27 @@
     <h1 class="section-title">Getting Started</h1>
     <p class="section-desc">From a fresh machine to a running ZealPHP app — install dependencies, scaffold a project, write your first route, deploy.</p>
 
+    <!-- TL;DR install — surfaced above the architecture diagram so visitors
+         who just want to try it can copy a single line. Full walkthrough
+         (with manual steps, scaffold, first page, deploy) lives below. -->
+    <div class="callout info" style="margin:1.25rem 0 2rem;padding:1.1rem 1.3rem;border-left:4px solid var(--accent)">
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.6rem;font-weight:700;color:var(--text)">
+        <span style="font-size:1.1rem">⚡</span>
+        <span>TL;DR — install in one line</span>
+        <span style="margin-left:auto;font-size:.7rem;color:var(--text-muted);font-weight:500">Ubuntu / Debian · macOS · WSL2</span>
+      </div>
+      <div class="qs-block" style="background:#0c0a09;color:#e7e5e4;padding:.8rem 1rem;margin:0">
+        <div class="qs-line" style="display:flex;align-items:center;gap:.5rem;font-family:var(--font-mono);font-size:.92rem">
+          <span class="qs-prompt" style="color:#a8a29e">$</span>
+          <span class="qs-cmd" style="flex:1">curl -fsSL https://php.zeal.ninja/install.sh | sudo bash</span>
+          <button class="qs-copy" data-copy="curl -fsSL https://php.zeal.ninja/install.sh | sudo bash" style="background:rgba(245,158,11,.15);color:var(--accent);border:1px solid rgba(245,158,11,.3);padding:.25rem .6rem;border-radius:4px;font-size:.75rem;cursor:pointer">copy</button>
+        </div>
+      </div>
+      <p style="margin:.65rem 0 0;font-size:.82rem;color:var(--text-muted)">
+        Installs PHP 8.3 + OpenSwoole + uopz + composer. Auto-detects your distro and bails with manual steps if it can't install for you (Fedora, Arch, Alpine, etc.). The detailed walkthrough below covers manual install, Docker, scaffolding, and deploy. <a href="#install" style="color:var(--accent);font-weight:600">Inspect the script first ↓</a>
+      </p>
+    </div>
+
     <!-- One Server. Everything. -->
     <div class="arch-compare" style="margin:2rem 0 2.5rem">
       <div class="arch-box complex">
@@ -34,39 +55,71 @@
     <!-- Step nav -->
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin:1.5rem 0;font-size:.82rem">
       <a href="#prereqs" style="padding:.4rem .8rem;background:var(--bg-alt);border:1px solid var(--border);border-radius:5px;color:var(--text);text-decoration:none">1. Prerequisites</a>
-      <a href="#install" style="padding:.4rem .8rem;background:var(--bg-alt);border:1px solid var(--border);border-radius:5px;color:var(--text);text-decoration:none">2. Install</a>
-      <a href="#scaffold" style="padding:.4rem .8rem;background:var(--bg-alt);border:1px solid var(--border);border-radius:5px;color:var(--text);text-decoration:none">3. Scaffold</a>
-      <a href="#first-page" style="padding:.4rem .8rem;background:var(--bg-alt);border:1px solid var(--border);border-radius:5px;color:var(--text);text-decoration:none">4. First page</a>
-      <a href="#first-route" style="padding:.4rem .8rem;background:var(--bg-alt);border:1px solid var(--border);border-radius:5px;color:var(--text);text-decoration:none">5. Framework routes</a>
-      <a href="#deploy" style="padding:.4rem .8rem;background:var(--bg-alt);border:1px solid var(--border);border-radius:5px;color:var(--text);text-decoration:none">6. Deploy</a>
+      <a href="#known-risks" style="padding:.4rem .8rem;background:var(--bg-alt);border:1px solid var(--border);border-radius:5px;color:var(--text);text-decoration:none">2. Known risks</a>
+      <a href="#install" style="padding:.4rem .8rem;background:var(--bg-alt);border:1px solid var(--border);border-radius:5px;color:var(--text);text-decoration:none">3. Install</a>
+      <a href="#scaffold" style="padding:.4rem .8rem;background:var(--bg-alt);border:1px solid var(--border);border-radius:5px;color:var(--text);text-decoration:none">4. Scaffold</a>
+      <a href="#first-page" style="padding:.4rem .8rem;background:var(--bg-alt);border:1px solid var(--border);border-radius:5px;color:var(--text);text-decoration:none">5. First page</a>
+      <a href="#first-route" style="padding:.4rem .8rem;background:var(--bg-alt);border:1px solid var(--border);border-radius:5px;color:var(--text);text-decoration:none">6. Framework routes</a>
+      <a href="#deploy" style="padding:.4rem .8rem;background:var(--bg-alt);border:1px solid var(--border);border-radius:5px;color:var(--text);text-decoration:none">7. Deploy</a>
     </div>
 
     <h2 id="prereqs" style="margin-top:2rem">1. Prerequisites</h2>
     <table class="ztable">
       <tr><th>Package</th><th>Version</th><th>Why</th></tr>
-      <tr><td><code>PHP</code></td><td>8.3.x</td><td>OpenSwoole does not support PHP 8.4 yet — stay on 8.3</td></tr>
-      <tr><td><code>OpenSwoole</code></td><td>25.0+</td><td>Async runtime, HTTP/WebSocket server, coroutines</td></tr>
+      <tr><td><code>PHP</code></td><td>8.3+</td><td>Tested on 8.3 and 8.4; OpenSwoole 26.2+ adds PHP 8.5 support</td></tr>
+      <tr><td><code>OpenSwoole</code></td><td>22.1+</td><td>Async runtime, HTTP/WebSocket server, coroutines (26.2+ for PHP 8.5)</td></tr>
       <tr><td><code>uopz</code></td><td>any</td><td>Overrides <code>header()</code>, <code>setcookie()</code>, <code>session_*</code> at runtime</td></tr>
       <tr><td><code>composer</code></td><td>2.x</td><td>Dependency management</td></tr>
       <tr><td><code>uv</code> (optional)</td><td>any</td><td>Only for AI agent examples (Python)</td></tr>
     </table>
 
-    <h2 id="install" style="margin-top:2.5rem">2. Install</h2>
-
-    <div class="callout warn" style="margin-bottom:1rem">
-      <strong>PHP 8.3 only.</strong> OpenSwoole does not currently support PHP 8.4. If your system has PHP 8.4 installed, install PHP 8.3 alongside it and use that for ZealPHP.
+    <h2 id="known-risks" style="margin-top:2.5rem">2. Before you ship: known risks</h2>
+    <div class="callout warn">
+      <strong>ZealPHP runs as a long-lived process.</strong> This changes the rules from PHP-FPM:
+      <ul style="margin:.5rem 0 0;padding-left:1.25rem">
+        <li style="margin-bottom:.35rem"><strong>Global state leaks</strong> — code written for request-per-process may accidentally retain state across requests. Audit your superglobals and <code>static</code> variables.</li>
+        <li style="margin-bottom:.35rem"><strong>Coroutine safety</strong> — references to <code>G::instance()</code> must not be held across <code>yield</code> points; each coroutine has its own context.</li>
+        <li style="margin-bottom:.35rem"><strong>uopz compatibility bridge is experimental</strong> — <code>session_start()</code>, <code>header()</code>, etc. are virtualized via <a href="https://pecl.php.net/package/uopz" target="_blank" rel="noopener">uopz</a>. Edge cases exist; report them.</li>
+        <li style="margin-bottom:.35rem"><strong>Memory growth</strong> — workers stay alive between requests; profile for leaks under sustained load.</li>
+        <li><strong>API stability</strong> — v0.2.x; breaking changes possible until v1.0. Pin a version in <code>composer.json</code>.</li>
+      </ul>
+      <p style="margin:.5rem 0 0">Report issues at <a href="https://github.com/sibidharan/zealphp/issues" target="_blank" rel="noopener">GitHub Issues</a>. Security disclosures: see <a href="https://github.com/sibidharan/zealphp/blob/master/SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a>.</p>
     </div>
 
-    <p>The framework repo ships a <code>setup.sh</code> that handles everything for Ubuntu/Debian:</p>
+    <h2 id="install" style="margin-top:2.5rem">3. Install</h2>
+
+    <div class="callout info" style="margin-bottom:1rem">
+      <strong>PHP 8.3, 8.4, or 8.5.</strong> OpenSwoole 22.1+ works on PHP 8.3 and 8.4; OpenSwoole 26.2+ (released Feb 2026) added PHP 8.5 support. If you only have one PHP version available, 8.3 is the safest default.
+    </div>
+
+    <p>One-line install on Ubuntu/Debian — pipes <code>setup.sh</code> straight from this site, no clone required:</p>
 
     <?php App::render('/components/_code', [
-      'label' => 'One-command install (Ubuntu/Debian)',
+      'label' => 'One-line install (Ubuntu/Debian)',
+      'lang' => 'bash',
+      'code' => <<<'BASH'
+curl -fsSL https://php.zeal.ninja/install.sh | sudo bash
+# Installs: PHP 8.3, OpenSwoole, uopz, composer
+BASH
+    ]); ?>
+
+    <div class="callout info" style="margin-top:.75rem">
+      <strong>Want to inspect before piping to <code>sudo</code>?</strong>
+      <br>
+      <code style="display:block;margin-top:.5rem;padding:.5rem .75rem;background:rgba(0,0,0,.05);border-radius:4px;font-size:.85rem">curl -fsSL https://php.zeal.ninja/install.sh -o install.sh &amp;&amp; less install.sh &amp;&amp; sudo bash install.sh</code>
+      Or fetch from GitHub directly to pin a specific commit:
+      <code style="display:block;margin-top:.5rem;padding:.5rem .75rem;background:rgba(0,0,0,.05);border-radius:4px;font-size:.85rem">curl -fsSL https://raw.githubusercontent.com/sibidharan/zealphp/master/setup.sh | sudo bash</code>
+    </div>
+
+    <p style="margin-top:1.5rem">If you'd rather clone first (e.g. you want to send a PR):</p>
+
+    <?php App::render('/components/_code', [
+      'label' => 'From a cloned checkout',
       'lang' => 'bash',
       'code' => <<<'BASH'
 git clone https://github.com/sibidharan/zealphp.git
 cd zealphp
 sudo bash setup.sh
-# Installs: PHP 8.3, OpenSwoole, uopz, composer
 BASH
     ]); ?>
 
@@ -106,7 +159,7 @@ BASH
       Run <code>docker compose up</code> from the cloned repo to get a fully configured container.
     </div>
 
-    <h2 id="scaffold" style="margin-top:2.5rem">3. Scaffold a project</h2>
+    <h2 id="scaffold" style="margin-top:2.5rem">4. Scaffold a project</h2>
 
     <p>Three paths depending on what you're building:</p>
 
@@ -119,7 +172,7 @@ BASH
           'lang' => 'bash',
           'code' => <<<'BASH'
 composer create-project \
-  sibidharan/zealphp-project:^0.1.1 \
+  sibidharan/zealphp-project:^0.2.0 \
   my-app
 cd my-app && php app.php
 BASH
@@ -177,7 +230,7 @@ BASH
       </p>
     </div>
 
-    <h2 id="first-page" style="margin-top:2.5rem">4. Your first page — just drop a file</h2>
+    <h2 id="first-page" style="margin-top:2.5rem">5. Your first page — just drop a file</h2>
 
     <p>Create a file in <code>public/</code>. It becomes a route. No framework code needed.</p>
 
@@ -218,7 +271,7 @@ PHP
       <strong>This is how you migrate.</strong> Move your existing PHP files into <code>public/</code>. They work immediately. When you need WebSocket, streaming, or coroutines — that's when you use <code>$app->route()</code>. See <a href="/routing">Routing</a> for the full picture.
     </div>
 
-    <h2 id="first-route" style="margin-top:2.5rem">5. Framework routes — when you need more</h2>
+    <h2 id="first-route" style="margin-top:2.5rem">6. Framework routes — when you need more</h2>
 
     <p>For URL parameters, WebSocket, streaming, or middleware — use programmatic routes in <code>app.php</code>:</p>
 
@@ -272,7 +325,7 @@ PHP
       <a href="/routing">Routing</a> · <a href="/responses">Response types</a> · <a href="/coroutines">Coroutines</a> · <a href="/streaming">Streaming</a> · <a href="/ws">WebSocket</a> · <a href="/middleware">Middleware</a> · <a href="/api">File-based REST API</a>
     </div>
 
-    <h2 id="deploy" style="margin-top:2.5rem">5. Deploy</h2>
+    <h2 id="deploy" style="margin-top:2.5rem">7. Deploy</h2>
 
     <p>ZealPHP includes built-in CLI management. For production, use the bundled systemd service:</p>
 

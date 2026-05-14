@@ -36,7 +36,43 @@ class App
     public static $middleware_wait_stack = [];
     public static $ignore_php_ext = true;
     public static $coproc_implicit_request_handler = false;
+    /** Apache DirectorySlash equivalent — redirect `/foo` → `/foo/` when foo is a directory. */
+    public static $directory_slash = true;
+    /** Apache DirectoryIndex — file names tried in order when a directory is requested. */
+    public static $directory_index = ['index.php', 'index.html', 'index.htm'];
+    /** Apache PATH_INFO — when `/script.php/extra/path`, expose `/extra/path` as PATH_INFO. */
+    public static $path_info = true;
+    /** Static handler URL-prefix whitelist. Empty = serve any path under document_root (Apache default). */
+    public static $static_handler_locations = [];
+    /** Block any path containing a dotfile component (.git, .env, .htaccess, etc.). Apache convention. */
+    public static $block_dotfiles = true;
     private static $fallback_handler = null;
+    /** Initial error_reporting level captured at boot — referenced by the per-coroutine override. */
+    public static int $initial_error_reporting = E_ALL;
+    /** Status -> custom error handler registry (key 0 = catch-all). */
+    private static array $error_handlers = [];
+    private const REASON_PHRASES = [
+        400 => 'Bad Request',
+        401 => 'Unauthorized',
+        403 => 'Forbidden',
+        404 => 'Not Found',
+        405 => 'Method Not Allowed',
+        406 => 'Not Acceptable',
+        408 => 'Request Timeout',
+        409 => 'Conflict',
+        410 => 'Gone',
+        413 => 'Payload Too Large',
+        414 => 'URI Too Long',
+        415 => 'Unsupported Media Type',
+        418 => "I'm a teapot",
+        422 => 'Unprocessable Entity',
+        429 => 'Too Many Requests',
+        500 => 'Internal Server Error',
+        501 => 'Not Implemented',
+        502 => 'Bad Gateway',
+        503 => 'Service Unavailable',
+        504 => 'Gateway Timeout',
+    ];
 
     private function __construct($host = '0.0.0.0', $port = 8080,$cwd = __DIR__)
     {
@@ -63,10 +99,80 @@ class App
             }
         }
 
+        // Capture initial error_reporting BEFORE uopz overrides it (else our override
+        // would self-recurse trying to read the "native" default).
+        self::$initial_error_reporting = \error_reporting();
+
+        // Install ONE process-level native error/exception handler before uopz
+        // overrides. After uopz takes over set_error_handler / set_exception_handler,
+        // user-space calls store handlers in G (per-coroutine). Real PHP errors
+        // raised by the engine still go through THIS native dispatcher, which
+        // reads the current coroutine's G stack — giving per-coroutine isolation.
+        \set_error_handler(static function (int $severity, string $message, string $file, int $line) {
+            $g = \ZealPHP\G::instance();
+            $level = $g->error_reporting_level ?? \ZealPHP\App::$initial_error_reporting;
+            if (!($severity & $level)) {
+                return true; // suppressed by error_reporting
+            }
+            $stack = $g->error_handlers_stack;
+            if (!empty($stack)) {
+                $top = $stack[count($stack) - 1];
+                [$callable, $levels] = $top;
+                if ($severity & $levels) {
+                    try {
+                        return (bool)$callable($severity, $message, $file, $line);
+                    } catch (\Throwable $e) {
+                        // Avoid loops; let PHP default handle if user handler explodes.
+                        return false;
+                    }
+                }
+            }
+            return false; // PHP default handler
+        });
+
+        \set_exception_handler(static function (\Throwable $e) {
+            $g = \ZealPHP\G::instance();
+            $stack = $g->exception_handlers_stack;
+            if (!empty($stack)) {
+                try {
+                    $stack[count($stack) - 1]($e);
+                } catch (\Throwable $e2) {
+                    // swallow
+                }
+            }
+        });
+
+        // Built-ins always present in CLI/OpenSwoole — uopz can override directly.
         \uopz_set_return('header', \Closure::fromCallable('\ZealPHP\header'), true);
+        \uopz_set_return('header_remove', \Closure::fromCallable('\ZealPHP\header_remove'), true);
         \uopz_set_return('headers_list', \Closure::fromCallable('\ZealPHP\headers_list'), true);
+        \uopz_set_return('headers_sent', \Closure::fromCallable('\ZealPHP\headers_sent'), true);
         \uopz_set_return('setcookie', \Closure::fromCallable('\ZealPHP\setcookie') , true);
+        \uopz_set_return('setrawcookie', \Closure::fromCallable('\ZealPHP\setrawcookie') , true);
         \uopz_set_return('http_response_code', \Closure::fromCallable('\ZealPHP\http_response_code'), true);
+        \uopz_set_return('flush', \Closure::fromCallable('\ZealPHP\flush'), true);
+        \uopz_set_return('ob_flush', \Closure::fromCallable('\ZealPHP\ob_flush'), true);
+        \uopz_set_return('ob_end_flush', \Closure::fromCallable('\ZealPHP\ob_end_flush'), true);
+        \uopz_set_return('ob_implicit_flush', \Closure::fromCallable('\ZealPHP\ob_implicit_flush'), true);
+        \uopz_set_return('set_time_limit', \Closure::fromCallable('\ZealPHP\set_time_limit'), true);
+        \uopz_set_return('ignore_user_abort', \Closure::fromCallable('\ZealPHP\ignore_user_abort'), true);
+        \uopz_set_return('connection_status', \Closure::fromCallable('\ZealPHP\connection_status'), true);
+        \uopz_set_return('connection_aborted', \Closure::fromCallable('\ZealPHP\connection_aborted'), true);
+        \uopz_set_return('output_add_rewrite_var', \Closure::fromCallable('\ZealPHP\output_add_rewrite_var'), true);
+        \uopz_set_return('output_reset_rewrite_vars', \Closure::fromCallable('\ZealPHP\output_reset_rewrite_vars'), true);
+        \uopz_set_return('is_uploaded_file', \Closure::fromCallable('\ZealPHP\is_uploaded_file'), true);
+        \uopz_set_return('move_uploaded_file', \Closure::fromCallable('\ZealPHP\move_uploaded_file'), true);
+        // Per-coroutine error/exception/shutdown handler registry.
+        \uopz_set_return('set_error_handler', \Closure::fromCallable('\ZealPHP\set_error_handler'), true);
+        \uopz_set_return('restore_error_handler', \Closure::fromCallable('\ZealPHP\restore_error_handler'), true);
+        \uopz_set_return('set_exception_handler', \Closure::fromCallable('\ZealPHP\set_exception_handler'), true);
+        \uopz_set_return('restore_exception_handler', \Closure::fromCallable('\ZealPHP\restore_exception_handler'), true);
+        \uopz_set_return('register_shutdown_function', \Closure::fromCallable('\ZealPHP\register_shutdown_function'), true);
+        \uopz_set_return('error_reporting', \Closure::fromCallable('\ZealPHP\error_reporting'), true);
+        // Apache-only built-ins (apache_*, getallheaders, virtual) are NOT defined
+        // in CLI SAPI; uopz can't override what doesn't exist. They are registered
+        // as global shims via src/apache_shims.php (composer files autoload) that
+        // delegate to the same \ZealPHP\* namespaced implementations.
         \uopz_set_return('session_start', \Closure::fromCallable('\ZealPHP\Session\zeal_session_start'), true);
         \uopz_set_return('session_id', \Closure::fromCallable('\ZealPHP\Session\zeal_session_id'), true);
         \uopz_set_return('session_status', \Closure::fromCallable('\ZealPHP\Session\zeal_session_status'), true);
@@ -584,12 +690,69 @@ class App
      * @return bool Returns true if the file is within the public directory, false otherwise.
      */
     public function includeCheck($abs_file){
-        // elog("Checking file: $abs_file inside ".self::$cwd);
         if (!$abs_file || strpos($abs_file, self::$cwd."/public") !== 0) {
-            return false; //May be operating outside the public directory
-        } else {
-            return true;
+            return false; // outside the public directory
         }
+        if (self::$block_dotfiles) {
+            $relative = substr($abs_file, strlen(self::$cwd."/public"));
+            foreach (explode('/', $relative) as $segment) {
+                if ($segment !== '' && $segment[0] === '.') {
+                    return false; // dotfile (.git, .env, .htaccess, etc.)
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Apache DirectorySlash + DirectoryIndex behavior.
+     *
+     * If the request hit a directory under public/, optionally 301-redirect
+     * to the trailing-slash form, then walk App::$directory_index until a
+     * file is found. .php files run via includeFile(); others are served
+     * via sendFile() (so Range/ETag work).
+     *
+     * Returns: \Generator for streaming, int for status code, null when the
+     * route was handled inline (response already emitted), or false to
+     * indicate the directory has no servable index.
+     */
+    public function serveDirectory(string $relDir, string $urlPrefix)
+    {
+        $g = G::instance();
+
+        if (self::$directory_slash) {
+            $requestPath = parse_url($g->server['REQUEST_URI'] ?? '', PHP_URL_PATH) ?? '';
+            if ($requestPath !== '' && substr($requestPath, -1) !== '/') {
+                $newUrl = $requestPath . '/';
+                $qs = parse_url($g->server['REQUEST_URI'] ?? '', PHP_URL_QUERY);
+                if ($qs) $newUrl .= '?' . $qs;
+                $g->zealphp_response->redirect($newUrl, 301);
+                $g->_streaming = true;
+                return null;
+            }
+        }
+
+        $base = self::$cwd . '/public/' . $relDir;
+        foreach (self::$directory_index as $indexFile) {
+            $abs = realpath($base . '/' . $indexFile);
+            if (!$abs || !file_exists($abs)) continue;
+            if (!$this->includeCheck($abs)) continue;
+
+            $relPath = '/' . trim($urlPrefix, '/') . '/' . $indexFile;
+            $g->server['PHP_SELF']        = $relPath;
+            $g->server['SCRIPT_NAME']     = $relPath;
+            $g->server['SCRIPT_FILENAME'] = $abs;
+
+            if (substr($indexFile, -4) === '.php') {
+                $__r = App::includeFile($abs);
+                if ($__r instanceof \Generator) return $__r;
+                return null;
+            }
+            $g->zealphp_response->sendFile($abs);
+            $g->_streaming = true;
+            return null;
+        }
+        return false;
     }
 
     /**
@@ -621,7 +784,7 @@ class App
             'post'   => $g->post ?? [],
             'cookie' => $g->cookie ?? [],
             'files'  => $g->files ?? [],
-            'env'    => $g->env ?? $_ENV ?? [],
+            'env'    => $g->env ?? $_ENV,
         ], JSON_UNESCAPED_SLASHES);
 
         $env = [];
@@ -750,16 +913,126 @@ class App
         self::$middleware_wait_stack[] = $middleware;
     }
 
-    private function invokeFallbackOrNotFound(): int
+    private function invokeFallbackOrNotFound(): \Psr\Http\Message\ResponseInterface
     {
+        // Dispatch the fallback as a real route so its body — whether echoed,
+        // returned as string/array/Generator/Response — is preserved instead of
+        // being discarded by the outer route's int-return path in dispatchRoute.
         if (self::$fallback_handler !== null) {
-            $handler = self::$fallback_handler['handler'];
-            $handler();
-            $g = G::instance();
-            return $g->status ?? 200;
+            $method = G::instance()->server['REQUEST_METHOD'] ?? 'GET';
+            return (new ResponseMiddleware())->dispatchRoute(self::$fallback_handler, [], $method);
         }
-        echo("<pre>404 Not Found</pre>");
-        return 404;
+        return $this->renderError(404);
+    }
+
+    /**
+     * Register a custom error page handler — Apache's `ErrorDocument` equivalent.
+     *
+     * Status-specific:  $app->setErrorHandler(404, fn() => App::render('404'));
+     * Catch-all:        $app->setErrorHandler(fn($status) => ...);
+     *
+     * Handler signature supports param injection by name — any of:
+     *   function() | function($status) | function($exception) |
+     *   function($status, $exception, $request, $response)
+     */
+    public function setErrorHandler(int|callable $statusOrHandler, ?callable $handler = null): void
+    {
+        if (is_callable($statusOrHandler) && $handler === null) {
+            $cb = $statusOrHandler;
+            $status = 0; // catch-all
+        } else {
+            $status = (int)$statusOrHandler;
+            $cb = $handler;
+        }
+        if (!is_callable($cb)) {
+            throw new \InvalidArgumentException('setErrorHandler requires a callable');
+        }
+        self::$error_handlers[$status] = [
+            'handler'   => $cb,
+            'param_map' => $this->buildParamMap($cb),
+            'raw'       => false,
+        ];
+    }
+
+    public static function getErrorHandler(int $status): ?array
+    {
+        return self::$error_handlers[$status] ?? self::$error_handlers[0] ?? null;
+    }
+
+    /**
+     * Render the response for an error status. Dispatches a user-registered
+     * handler if one exists (status-specific takes precedence over catch-all);
+     * otherwise returns the framework's default body (HTML or JSON per Accept).
+     *
+     * Handler exceptions are caught and logged — falls back to default body
+     * so a buggy 500 handler can't infinite-loop.
+     */
+    public function renderError(int $status, ?\Throwable $exception = null): \Psr\Http\Message\ResponseInterface
+    {
+        $g = G::instance();
+        // Recursion guard — if a user-registered error handler itself triggers
+        // an error, the nested call falls straight through to the default page
+        // instead of looping back into the same handler.
+        if (($g->error_render_depth ?? 0) >= 1) {
+            return $this->defaultErrorResponse($status, $exception);
+        }
+        $route = self::getErrorHandler($status);
+        if ($route !== null) {
+            $g->error_status    = $status;
+            $g->error_exception = $exception;
+            // Seed g->status with the error status so a handler that returns array/string
+            // produces a response with the right HTTP status (the handler can still
+            // override via http_response_code() before returning).
+            $g->status = $status;
+            $g->error_render_depth = ($g->error_render_depth ?? 0) + 1;
+            try {
+                $method = $g->server['REQUEST_METHOD'] ?? 'GET';
+                return (new ResponseMiddleware())->dispatchRoute(
+                    $route,
+                    ['status' => $status, 'exception' => $exception],
+                    $method
+                );
+            } catch (\Throwable $e) {
+                elog("Error handler for $status itself threw: " . $e->getMessage(), 'error');
+                // fall through to default
+            } finally {
+                $g->error_render_depth = max(0, ($g->error_render_depth ?? 1) - 1);
+            }
+        }
+        return $this->defaultErrorResponse($status, $exception);
+    }
+
+    /**
+     * Default error body. Honors `Accept: application/json` for JSON envelope,
+     * otherwise emits HTML. Stack trace included only when App::$display_errors.
+     */
+    private function defaultErrorResponse(int $status, ?\Throwable $exception): \Psr\Http\Message\ResponseInterface
+    {
+        $g = G::instance();
+        $reason = self::REASON_PHRASES[$status] ?? '';
+        $accept = strtolower($g->server['HTTP_ACCEPT'] ?? '');
+        $wantsJson = $accept !== ''
+            && str_contains($accept, 'application/json')
+            && !str_contains($accept, 'text/html');
+
+        if ($wantsJson) {
+            $body = json_encode([
+                'error' => [
+                    'status'  => $status,
+                    'message' => $reason,
+                    'trace'   => ($exception && self::$display_errors) ? jTraceEx($exception) : null,
+                ],
+            ], JSON_UNESCAPED_SLASHES);
+            return (new Response($body))
+                ->withStatus($status)
+                ->withHeader('Content-Type', 'application/json');
+        }
+
+        $body = "<pre>{$status} {$reason}</pre>";
+        if ($exception && self::$display_errors) {
+            $body .= "\n<pre>" . htmlspecialchars(jTraceEx($exception)) . "</pre>";
+        }
+        return (new Response($body))->withStatus($status);
     }
 
     protected static function parseCliArgs(): array
@@ -833,9 +1106,44 @@ class App
             case 'restart':
                 $pidFile = self::resolvePidFile($flags);
                 $wasDaemonized = file_exists($pidFile);
+                echo "Restarting ZealPHP...\n";
                 self::cliStop($pidFile, quiet: true);
                 if ($wasDaemonized && !isset($flags['daemonize'])) {
                     $flags['daemonize'] = true;
+                }
+                // Fork a watcher child whose only job is to poll for the new
+                // PID file and print "Restarted (pid X, port Y)". The actual
+                // start happens in the original process (parent of the fork),
+                // which falls through and eventually calls $server->start() —
+                // that daemonizes internally, so we can't print success from
+                // there. The watcher gives the user clear confirmation that
+                // the new server came up.
+                if (function_exists('pcntl_fork')) {
+                    $port = $flags['port'] ?? (self::$instance ? self::$instance->port : 8080);
+                    $watcherPid = pcntl_fork();
+                    if ($watcherPid === 0) {
+                        // Detach so the watcher survives independently and
+                        // doesn't show up in the parent's process group.
+                        if (function_exists('posix_setsid')) { @posix_setsid(); }
+                        $newPid = 0;
+                        for ($i = 0; $i < 50; $i++) {   // poll up to 5s
+                            usleep(100000);
+                            if (file_exists($pidFile)) {
+                                $candidate = (int)trim(@file_get_contents($pidFile) ?: '');
+                                if ($candidate > 0 && @posix_kill($candidate, 0)) {
+                                    $newPid = $candidate;
+                                    break;
+                                }
+                            }
+                        }
+                        if ($newPid > 0) {
+                            echo "Restarted (pid {$newPid}, port {$port}).\n";
+                        } else {
+                            echo "Restarted but could not confirm — check `php app.php status`.\n";
+                        }
+                        exit(0);
+                    }
+                    // parent (original CLI process) continues to start the server
                 }
                 // fall through to start
             default:
@@ -884,38 +1192,44 @@ class App
 
     private static function cliStop(string $pidFile, bool $quiet = false): void
     {
+        $say = function (string $msg) use ($quiet): void {
+            if (!$quiet) { echo $msg; }
+        };
+
         if (!file_exists($pidFile)) {
-            if (!$quiet) { echo "ZealPHP is not running (no PID file: {$pidFile})\n"; }
+            $say("ZealPHP is not running (no PID file: {$pidFile})\n");
             return;
         }
         $pid = (int)trim(file_get_contents($pidFile));
         if ($pid <= 0 || !@posix_kill($pid, 0)) {
-            if (!$quiet) { echo "ZealPHP is not running (stale PID file)\n"; }
+            $say("ZealPHP is not running (stale PID file)\n");
             @unlink($pidFile);
             return;
         }
         $pgid = @posix_getpgid($pid);
         $killGroup = $pgid && $pgid !== posix_getpgid(posix_getpid());
-        echo "Stopping ZealPHP (pid {$pid})...\n";
+        $say("Stopping ZealPHP (pid {$pid})...\n");
         $killGroup ? posix_kill(-$pgid, SIGTERM) : posix_kill($pid, SIGTERM);
-        // Fast poll first 500ms (10 × 50ms), then slower for up to 3s
-        for ($i = 0; $i < 10; $i++) {
+        // OpenSwoole graceful shutdown (workers finish current requests, master
+        // tears down listeners) typically takes 5-7 seconds. Poll for up to 10s
+        // before falling back to SIGKILL.
+        for ($i = 0; $i < 10; $i++) {       // first 500ms: fast poll
             usleep(50000);
             if (!@posix_kill($pid, 0)) {
                 @unlink($pidFile);
-                echo "Stopped.\n";
+                $say("Stopped.\n");
                 return;
             }
         }
-        for ($i = 0; $i < 25; $i++) {
+        for ($i = 0; $i < 95; $i++) {       // next 9.5s: slower poll
             usleep(100000);
             if (!@posix_kill($pid, 0)) {
                 @unlink($pidFile);
-                echo "Stopped.\n";
+                $say("Stopped.\n");
                 return;
             }
         }
-        echo "Force killing...\n";
+        $say("Graceful shutdown timed out, force killing...\n");
         $killGroup ? posix_kill(-$pgid, SIGKILL) : posix_kill($pid, SIGKILL);
         usleep(100000);
         @unlink($pidFile);
@@ -1167,14 +1481,26 @@ HELP;
             co::set(['hook_flags'=> \OpenSwoole\Runtime::HOOK_ALL]);
             \OpenSwoole\Runtime::enableCoroutine(\OpenSwoole\Runtime::HOOK_ALL);
         }
+        // Use the same path resolution as the stop/status CLI commands so that
+        // `php app.php stop` finds the PID file the server just wrote. Without
+        // this, the server writes /tmp/zealphp_PORT.pid (flat) but stop looks
+        // under /tmp/zealphp/zealphp_PORT.pid (subdir) — they disagree.
+        $defaultPidFile = self::resolvePidFile(['port' => $this->port]);
         $default_settings = [
             'enable_static_handler' => true,
             'document_root' => self::$cwd . '/public',
+            // Restrict OpenSwoole's built-in static handler to the listed URL prefixes
+            // (Apache equivalent: serving only safe subtrees). Leave empty to serve all
+            // — including dotfiles — like Apache default. Default whitelist below is
+            // safe for typical web apps; override via $app->run(['static_handler_locations' => [...]]).
+            'static_handler_locations' => self::$static_handler_locations !== []
+                ? self::$static_handler_locations
+                : ['/css', '/js', '/img', '/images', '/fonts', '/assets', '/static', '/favicon.ico', '/robots.txt'],
             'enable_coroutine' =>  !self::$superglobals,
             // Runtime compression is owned by OpenSwoole. Do not also register
             // CompressionMiddleware unless this setting is disabled.
             'http_compression' => true,
-            'pid_file' => "/tmp/zealphp_{$this->port}.pid",
+            'pid_file' => $defaultPidFile,
             'task_worker_num' => 0,
             'task_enable_coroutine' => true,
             // Suppress NOTICE-level messages from OpenSwoole internals (e.g. ERRNO 1005
@@ -1210,19 +1536,12 @@ HELP;
             include $route_file;
         }
 
-        # Implicit route for including APIs
-        $this->nsPathRoute('api', "{rquest}", [
-            'methods' => ['GET', 'POST', 'PUT', 'DELETE']
-        ], function($rquest, $response, $request){
-            $api = new ZealAPI($request, $response, self::$cwd);
-            try {
-                return $api->processApi("", $rquest);
-            } catch (\Exception $e){
-                $api->die($e);
-            }
-        });
-
-        
+        # Implicit route for including APIs.
+        # The two-segment route is registered FIRST so that /api/users/list
+        # matches with module=users, request=list (a single segment passing
+        # the security regex), instead of being captured by the one-segment
+        # catch-all as request="users/list" — which contains a slash and
+        # would fail validation with a misleading "invalid_request" error.
         $this->nsPathRoute('api', "{module}/{rquest}", [
             'methods' => ['GET', 'POST', 'PUT', 'DELETE']
         ], function($module, $rquest, $response, $request){
@@ -1234,12 +1553,32 @@ HELP;
             }
         });
 
+        $this->nsPathRoute('api', "{rquest}", [
+            'methods' => ['GET', 'POST', 'PUT', 'DELETE']
+        ], function($rquest, $response, $request){
+            $api = new ZealAPI($request, $response, self::$cwd);
+            try {
+                return $api->processApi("", $rquest);
+            } catch (\Exception $e){
+                $api->die($e);
+            }
+        });
+
         # Implicit route for ignoring PHP extensions
 
         if(App::$ignore_php_ext){
             $this->patternRoute('/.*\.php', ['methods' => ['GET', 'POST']], function($response) {
-                echo("<pre>403 Forbidden</pre>");
-                return(403);
+                return App::instance()->renderError(403);
+            });
+        }
+
+        # Block URLs targeting dotfile segments (.git/, .env, .htaccess, …).
+        # `.well-known/` is allowed — it's a registered convention (RFC 8615).
+        if (App::$block_dotfiles) {
+            $this->patternRoute('/(.*/)?\.(?!well-known)[^/]*', [
+                'methods' => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD']
+            ], function($response) {
+                return App::instance()->renderError(403);
             });
         }
         // $this->patternRoute('/.*\.php', ['methods' => ['GET', 'POST']], function($response) {
@@ -1264,8 +1603,7 @@ HELP;
                     $__r = App::includeFile($abs_file);
                     if ($__r instanceof \Generator) return $__r;
                 } else {
-                    echo("<pre>403 Forbidden</pre>");
-                    return(403);
+                    return App::instance()->renderError(403);
                 }
             } else {
                 return $this->invokeFallbackOrNotFound();
@@ -1290,25 +1628,14 @@ HELP;
                     $__r = App::includeFile($abs_file);
                     if ($__r instanceof \Generator) return $__r;
                 } else {
-                    echo("<pre>403 Forbidden</pre>");
-                    return 403;
+                    return App::instance()->renderError(403);
                 }
             } else if(is_dir(self::$cwd."/public/".$file)){
-                $abs_file = realpath(self::$cwd."/public/".$file."/index.php");
-                if(file_exists($abs_file)){
-                    if ($this->includeCheck($abs_file)){
-                        $g->server['PHP_SELF'] = '/'.$file.'/index.php';
-                        $g->server['SCRIPT_NAME'] = '/'.$file.'/index.php';
-                        $g->server['SCRIPT_FILENAME'] = $abs_file;
-                        $__r = App::includeFile($abs_file);
-                    if ($__r instanceof \Generator) return $__r;
-                    } else {
-                        echo("<pre>403 Forbidden</pre>");
-                        return 403;
-                    }
-                } else {
+                $result = $this->serveDirectory($file, $file);
+                if ($result === false) {
                     return $this->invokeFallbackOrNotFound();
                 }
+                return $result;
             } else {
                 return $this->invokeFallbackOrNotFound();
             }
@@ -1334,26 +1661,14 @@ HELP;
                     $__r = App::includeFile($abs_file);
                     if ($__r instanceof \Generator) return $__r;
                 } else {
-                    echo("<pre>403 Forbidden</pre>");
-                    return(403);
+                    return App::instance()->renderError(403);
                 }
             } else if(is_dir(self::$cwd."/public/".$dir.'/'.$uri)){
-                $abs_path = self::$cwd."/public/".$dir.'/'.$uri."/index.php";
-                if(file_exists($abs_path)){
-                    if ($this->includeCheck($abs_path)){
-                        $g->server['PHP_SELF'] = '/'.$dir.'/'.$uri.'/index.php';
-                        $g->server['SCRIPT_NAME'] = '/'.$dir.'/'.$uri.'/index.php';
-                        $g->server['SCRIPT_FILENAME'] = $abs_path;
-                        $__r = App::includeFile($abs_path);
-                        if ($__r instanceof \Generator) return $__r;
-                    } else {
-                        echo("<pre>403 Forbidden</pre>");
-                        return(403);
-                       
-                    }
-                } else {
+                $result = $this->serveDirectory($dir.'/'.$uri, $dir.'/'.$uri);
+                if ($result === false) {
                     return $this->invokeFallbackOrNotFound();
                 }
+                return $result;
             } else {
                 return $this->invokeFallbackOrNotFound();
             }
@@ -1390,7 +1705,7 @@ HELP;
             self::$middleware_stack = self::$middleware_stack->add($middleware);
         }
 
-        $server->on("request",new $SessionManager(function(\ZealPHP\HTTP\Request $request, \ZealPHP\HTTP\Response $response) use ($server) {
+        $server->on("request",new $SessionManager(function(\ZealPHP\HTTP\Request $request, \ZealPHP\HTTP\Response $response) {
             $g = G::instance();
             static $serverSoftware = null;
             if ($serverSoftware === null) {
@@ -1431,6 +1746,36 @@ HELP;
 
             try {
                 $serverResponse = App::middleware()->handle($serverRequest);
+
+                // Per-request shutdown functions (Apache mod_php parity). Run AFTER
+                // middleware returns but BEFORE emit, so a shutdown function can
+                // still echo/header()/http_response_code() into the final response.
+                $shutdown = $g->shutdown_functions;
+                if (!empty($shutdown)) {
+                    ob_start();
+                    $beforeStatus = $g->status;
+                    foreach ($shutdown as [$fn, $args]) {
+                        try { $fn(...$args); } catch (\Throwable $e) {
+                            elog("shutdown function threw: ".$e->getMessage(), 'error');
+                        }
+                    }
+                    $g->shutdown_functions = [];
+                    $extra = ob_get_clean();
+                    if ($extra !== false && $extra !== '') {
+                        $combined = (string)$serverResponse->getBody() . $extra;
+                        $bodyRes = fopen('php://temp', 'r+');
+                        fwrite($bodyRes, $combined);
+                        rewind($bodyRes);
+                        $serverResponse = $serverResponse->withBody(
+                            new \OpenSwoole\Core\Psr\Stream($bodyRes)
+                        );
+                    }
+                    if ($g->status !== null && $g->status !== $beforeStatus
+                        && $g->status !== $serverResponse->getStatusCode()) {
+                        $serverResponse = $serverResponse->withStatus($g->status);
+                    }
+                }
+
                 if ($response->parent->isWritable()) {
                     $response->flush();
                     $response->parent->header('X-Powered-By', 'ZealPHP + OpenSwoole');
@@ -1439,13 +1784,27 @@ HELP;
                 access_log($serverResponse->getStatusCode(), 0);
             } catch (\Throwable|\OpenSwoole\ExitException $e) {
                 elog(jTraceEx($e), "error");
-                $response->parent->status(500);                    
-                if (App::$display_errors) {
-                    $g->status = 500;
-                    $response->parent->end("<pre>".jTraceEx($e)."</pre>");
-                } else {
-                    $g->status = 500;
-                    $response->parent->end("<pre> Internal Server Error </pre>");
+                if ($response->parent->isWritable()) {
+                    // Render via App::renderError so a user-registered 500 handler
+                    // (Apache ErrorDocument equivalent) runs even at the top level.
+                    try {
+                        $errResp = App::instance()->renderError(500, $e);
+                        $response->parent->status($errResp->getStatusCode());
+                        foreach ($errResp->getHeaders() as $name => $values) {
+                            foreach ($values as $value) {
+                                $response->parent->header($name, $value);
+                            }
+                        }
+                        $g->status = $errResp->getStatusCode();
+                        $response->parent->end((string)$errResp->getBody());
+                    } catch (\Throwable $e2) {
+                        $response->parent->status(500);
+                        $g->status = 500;
+                        $body = App::$display_errors
+                            ? "<pre>".jTraceEx($e)."</pre>"
+                            : "<pre>500 Internal Server Error</pre>";
+                        $response->parent->end($body);
+                    }
                 }
             }
         }));
@@ -1557,6 +1916,9 @@ class ResponseMiddleware implements MiddlewareInterface
             }
 
             if ($object instanceof \Generator) {
+                // Capture status BEFORE flush — Response::flush() clears g->status.
+                $streamStatus = $g->status ?? 200;
+                $g->openswoole_response->status($streamStatus);
                 $g->zealphp_response->header('Accept-Ranges', 'none');
                 $g->zealphp_response->flush();
                 foreach ($object as $chunk) {
@@ -1567,7 +1929,7 @@ class ResponseMiddleware implements MiddlewareInterface
                 if ($g->openswoole_response->isWritable()) {
                     $g->openswoole_response->end();
                 }
-                return (new Response('', $g->status ?? 200));
+                return (new Response('', $streamStatus));
             }
 
             if ($g->_streaming ?? false) {
@@ -1599,18 +1961,30 @@ class ResponseMiddleware implements MiddlewareInterface
                 if($e->getStatus() == 0){
                     return (new Response(''))->withStatus($g->status ?? 200);
                 } else {
-                    return (new Response(''))->withStatus(500);
+                    return App::instance()->renderError(500);
                 }
             }
-            if (App::$display_errors) {
-                return (new Response("<pre>".jTraceEx($e)."</pre>"))->withStatus(500);
-            } else {
-                return (new Response("<pre>500 Internal Server Error</pre>"))->withStatus(500);
+            // If this dispatch was itself invoked by renderError (error handler
+            // dispatch path), let the throw bubble back so the outer renderError
+            // catches it and renders the ORIGINAL error status's default page —
+            // not a fresh 500 from inside the recursion.
+            if (($g->error_render_depth ?? 0) > 0) {
+                throw $e;
             }
+            // User-installed exception handler runs before the default error page.
+            $excStack = $g->exception_handlers_stack ?? [];
+            if (!empty($excStack)) {
+                ob_start();
+                try { $excStack[count($excStack) - 1]($e); } catch (\Throwable $e2) { /* swallow */ }
+                $body = ob_get_clean();
+                return (new Response($body))->withStatus($g->status ?? 500);
+            }
+            elog(jTraceEx($e), "error");
+            return App::instance()->renderError(500, $e);
         }
     }
 
-    private function dispatchRoute(array $route, array $params, string $method): ResponseInterface
+    public function dispatchRoute(array $route, array $params, string $method): ResponseInterface
     {
         if (($route['raw'] ?? false) === true) {
             return $this->dispatchRawRoute($route, $params, $method);
@@ -1642,6 +2016,8 @@ class ResponseMiddleware implements MiddlewareInterface
             // Fast paths — discard output buffer without string copy
             if ($object instanceof \Generator) {
                 ob_end_clean();
+                $streamStatus = $g->status ?? 200;
+                $g->openswoole_response->status($streamStatus);
                 $g->zealphp_response->header('Accept-Ranges', 'none');
                 $g->zealphp_response->flush();
                 foreach ($object as $chunk) {
@@ -1652,17 +2028,33 @@ class ResponseMiddleware implements MiddlewareInterface
                 if ($g->openswoole_response->isWritable()) {
                     $g->openswoole_response->end();
                 }
-                return (new Response('', $g->status ?? 200));
+                return (new Response('', $streamStatus));
             }
 
             if ($g->_streaming ?? false) {
-                ob_end_clean();
+                // Apache+mod_php auto-flushes any remaining buffer at handler exit
+                // even in streaming mode. Mirror that to keep the last echo visible.
+                if (ob_get_level() > 0) {
+                    $remaining = ob_get_clean();
+                    if ($remaining !== false && $remaining !== ''
+                        && isset($g->openswoole_response)
+                        && $g->openswoole_response->isWritable()) {
+                        $g->openswoole_response->write($remaining);
+                    }
+                }
                 return (new Response('', $g->status ?? 200));
             }
 
             if (is_int($object)) {
                 ob_end_clean();
-                return (new Response('', (int)$object));
+                $istatus = (int)$object;
+                // Status-only returns from a handler (e.g. `return 404;`) route
+                // through renderError so any registered custom error page fires —
+                // Apache's `ErrorDocument` behavior for unhandled status codes.
+                if ($istatus >= 400 && $istatus < 600) {
+                    return App::instance()->renderError($istatus);
+                }
+                return (new Response('', $istatus));
             }
 
             $status = $g->status ?? 200;
@@ -1705,16 +2097,29 @@ class ResponseMiddleware implements MiddlewareInterface
                     elog("HTTP Status: ".$g->status);
                     return (new Response(ob_get_clean()))->withStatus($g->status ?? 200);
                 } else {
-                    return (new Response(ob_get_clean()))->withStatus(500);
+                    @ob_end_clean();
+                    return App::instance()->renderError(500);
                 }
             }
-            elog(jTraceEx($e), "error");
-            if (App::$display_errors) {
-                // print the error message to the error log
-                return (new Response("<pre>".jTraceEx($e)."</pre>"))->withStatus(500);
-            } else {
-                return (new Response("<pre>500 Internal Server Error</pre>"))->withStatus(500);
+            // Inside an error-render recursion — rethrow so the outer renderError
+            // catches and falls through to the default body for the ORIGINAL status.
+            if (($g->error_render_depth ?? 0) > 0) {
+                @ob_end_clean();
+                throw $e;
             }
+            // User-installed exception handler runs before the default error page.
+            $excStack = $g->exception_handlers_stack ?? [];
+            if (!empty($excStack)) {
+                if (ob_get_level() > 0) { @ob_clean(); }
+                ob_start();
+                try { $excStack[count($excStack) - 1]($e); } catch (\Throwable $e2) { /* swallow */ }
+                $body = ob_get_clean();
+                @ob_end_clean();
+                return (new Response($body))->withStatus($g->status ?? 500);
+            }
+            @ob_end_clean();
+            elog(jTraceEx($e), "error");
+            return App::instance()->renderError(500, $e);
         }
     }
 
@@ -1724,6 +2129,40 @@ class ResponseMiddleware implements MiddlewareInterface
         $uri = $g->server['REQUEST_URI'];
         $method = $g->server['REQUEST_METHOD'];
         $app = App::instance();
+
+        // URL-decoded traversal/null-byte rejection BEFORE route matching.
+        // Apache rejects these at the URI parse layer; we do the same so encoded
+        // attacks (%2e%2e, %00, backslash) can't survive past pattern matching.
+        $path = parse_url($uri, PHP_URL_PATH) ?? $uri;
+        $decoded = rawurldecode($path);
+        if (strpos($decoded, "\0") !== false
+            || strpos($decoded, '\\') !== false
+            || preg_match('#(^|/)\.\.(/|$)#', $decoded)) {
+            return App::instance()->renderError(400);
+        }
+
+        // Apache PATH_INFO — `/script.php/extra/path` exposes `/extra/path` to
+        // the script and rewrites REQUEST_URI to just the script. Triggers
+        // only when the literal `.php/` appears in the URL (WordPress/Drupal
+        // permalink style); implicit-extension routing is unaffected.
+        if (App::$path_info && strpos($path, '.php/') !== false) {
+            [$scriptPath, $extra] = explode('.php/', $path, 2);
+            $scriptPath .= '.php';
+            $abs = realpath(App::$cwd . '/public' . $scriptPath);
+            if ($abs && is_file($abs) && strpos($abs, App::$cwd . '/public') === 0) {
+                $g->server['PATH_INFO']       = '/' . $extra;
+                $g->server['PATH_TRANSLATED'] = App::$cwd . '/public/' . $extra;
+                $g->server['SCRIPT_NAME']     = $scriptPath;
+                $qs = parse_url($uri, PHP_URL_QUERY);
+                // When ignore_php_ext is on, the `.php` URI would hit the 403-block
+                // route — strip the extension so the implicit file route resolves it.
+                $rewritten = App::$ignore_php_ext
+                    ? substr($scriptPath, 0, -4)
+                    : $scriptPath;
+                $uri = $rewritten . ($qs ? '?' . $qs : '');
+                $g->server['REQUEST_URI'] = $uri;
+            }
+        }
 
         // OPTIONS — return allowed methods for this URI without running a handler
         if ($method === 'OPTIONS') {
@@ -1761,7 +2200,7 @@ class ResponseMiddleware implements MiddlewareInterface
         if ($fallback !== null) {
             return $this->dispatchRoute($fallback, [], $method);
         }
-        return (new Response('<pre>404 Not Found</pre>'))->withStatus(404);
+        return App::instance()->renderError(404);
     }
 }
 

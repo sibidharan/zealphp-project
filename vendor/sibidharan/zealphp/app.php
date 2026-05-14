@@ -100,6 +100,20 @@ $app->route('/raw/bench', ['raw' => true], function() {
     return 'You requested: bench';
 });
 
+// One-line installer: curl -fsSL https://php.zeal.ninja/install.sh | sudo bash
+// Streams the repo's setup.sh from the project root with a text/x-shellscript
+// content-type so the browser shows it inline and curl + bash both accept it.
+$app->route('/install.sh', function($response) {
+    $response->sendFile(__DIR__ . '/setup.sh');
+});
+
+// Bench-environment installer: curl -fsSL https://php.zeal.ninja/bench-install.sh | sudo bash
+// Wraps setup.sh + installs wrk/ab + clones the repo + composer install,
+// leaving the machine ready to run scripts/bench.sh.
+$app->route('/bench-install.sh', function($response) {
+    $response->sendFile(__DIR__ . '/bench-install.sh');
+});
+
 $app->route('/bench/template', function() {
     App::render('/bench_page', [
         'title' => 'ZealPHP Benchmark',
@@ -351,6 +365,16 @@ if ($serverLogFile !== false && trim((string) $serverLogFile) !== '') {
         @mkdir($serverLogDir, 0775, true);
     }
     $settings['log_file'] = $serverLogFile;
+}
+
+// Test fixture support: error-handling tests use a Store table for cross-coroutine
+// signaling. Created only when the fixture is present so demo deployments stay clean.
+if (file_exists(__DIR__ . '/route/_error_test.php')) {
+    Store::make('error_test', 16, [
+        'handler_fired'  => [\OpenSwoole\Table::TYPE_INT, 1],
+        'handler_cid'    => [\OpenSwoole\Table::TYPE_INT, 8],
+        'shutdown_count' => [\OpenSwoole\Table::TYPE_INT, 1],
+    ]);
 }
 
 $app->run($settings);

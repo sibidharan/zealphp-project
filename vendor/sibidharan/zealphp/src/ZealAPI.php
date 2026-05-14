@@ -15,6 +15,54 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
+/**
+ * File-based API dispatcher.
+ *
+ * URL convention
+ * --------------
+ *   GET  /api/users/get          → api/users/get.php must define $get  = function(...){...}
+ *   POST /api/users/create       → api/users/create.php must define $create = function(...){...}
+ *   GET  /api/php/sapi_name      → api/php/sapi_name.php must define $sapi_name = function(...){...}
+ *
+ * The variable name MUST match basename($file, '.php'). The closure is
+ * Closure::bind'd to a ZealAPI instance, so inside the handler $this is the
+ * ZealAPI object and you can call $this->paramsExists(), $this->die(), etc.
+ *
+ * Parameter injection (by name)
+ * -----------------------------
+ *   $app      → the ZealAPI instance
+ *   $request  → ZealPHP\HTTP\Request
+ *   $response → ZealPHP\HTTP\Response
+ *   $server   → OpenSwoole server
+ *   any other → null (or its declared default value)
+ *
+ * Error responses
+ * ---------------
+ * All ZealAPI failures emit JSON with an "error" key and an HTTP status:
+ *
+ *   400  invalid_module        — path component fails the strict regex
+ *   400  invalid_request       — method name contains slashes/dots/etc
+ *   404  method_not_found      — file or expected variable name missing
+ *   404  undefined_method      — handler called $this->X() but X is not a
+ *                                 method on ZealAPI/REST. Response includes
+ *                                 a "hint" and, if a close match is found via
+ *                                 levenshtein, a "did_you_mean" suggestion:
+ *
+ *                                   { "error": "undefined_method",
+ *                                     "method": "paramExist",
+ *                                     "hint": "...Did you mean $this->paramsExists()?",
+ *                                     "did_you_mean": "paramsExists" }
+ *
+ *                                 Prior to this change, an undefined-method
+ *                                 call inside the handler caused __call to
+ *                                 re-invoke the same closure → infinite
+ *                                 recursion. processApi() now dispatches the
+ *                                 closure directly, so __call is only
+ *                                 reached on real typos.
+ *
+ *   500  (PHP exception)       — uncaught throwable inside the handler;
+ *                                 stack trace logged via elog().
+ */
 class ZealAPI extends REST
 {
     public $data = "";
@@ -25,6 +73,7 @@ class ZealAPI extends REST
     public $_response = null;
     public $request = null;
     public $cwd = null;
+    private ?array $_undefinedMethodError = null;
     
     public function __construct($request, $response, $cwd)
     {
@@ -54,10 +103,10 @@ class ZealAPI extends REST
             return;
         }
 
-        if (!isset($module) and (int)method_exists($this, $func) > 0) {
+        if ($module === '' && method_exists($this, $func)) {
             $this->$func();
         } else {
-            if (isset($module)) {
+            if ($module !== '') {
                 $dir = $this->cwd.'/api'.$module;
                 $g->server['DOCUMENT_ROOT'] = App::$cwd . '/api';
                 $file = $dir.'/'.$request.'.php';
@@ -91,9 +140,7 @@ class ZealAPI extends REST
                     $invokeArgs = [];
                     foreach (self::$reflectionCache[$cacheKey] as $param) {
                         $pname = $param->getName();
-                        if (isset($params[$pname])) {
-                            $invokeArgs[] = $params[$pname];
-                        } else if ($pname == 'app'){
+                        if ($pname == 'app'){
                             $invokeArgs[] = $this;
                         } else if ($pname == 'request'){
                             $invokeArgs[] = $this->request;
@@ -102,13 +149,30 @@ class ZealAPI extends REST
                         } else if ($pname == 'server'){
                             $invokeArgs[] = App::$server;
                         } else {
-                            $invokeArgs[] = $param->isDefaultValueAvailable() 
-                                ? $param->getDefaultValue() 
+                            $invokeArgs[] = $param->isDefaultValueAvailable()
+                                ? $param->getDefaultValue()
                                 : null;
                         }
                     }
                     ob_start();
-                    $object = $this->$func(...$invokeArgs);;
+                    // Invoke the closure directly. It was Closure::bind'd to
+                    // $this above, so $this inside the closure is still the
+                    // ZealAPI instance. Going through $this->$func(...) instead
+                    // would round-trip through __call, and a typo inside the
+                    // closure (e.g. $this->paramExist vs $this->paramsExists)
+                    // would then proxy back to the same closure → infinite loop.
+                    try {
+                        $object = $handler(...$invokeArgs);
+                    } catch (\BadMethodCallException $e) {
+                        // __call collected the structured error in
+                        // $this->_undefinedMethodError before throwing.
+                        ob_end_clean();
+                        if (!empty($this->_undefinedMethodError)) {
+                            response_add_header('Content-Type', 'application/json');
+                            return new Response($this->json($this->_undefinedMethodError), 404);
+                        }
+                        throw $e;
+                    }
                     if(is_int($object)){
                         $status = (int)$object;
                     } else {
@@ -200,17 +264,57 @@ class ZealAPI extends REST
         $this->response($data, $response_code);
     }
 
-    //TODO: Buggy current-call- hangs if calling nonexisting method inside API.
+    /**
+     * Catch missing-method calls from inside an API handler closure (e.g. a typo
+     * like $this->paramExist instead of $this->paramsExists).
+     *
+     * Previously this proxied to $this->api_rpc — but api_rpc IS the closure
+     * we're currently executing, so the proxy re-invoked it and infinitely
+     * recursed until stack overflow. processApi() now invokes the closure
+     * directly, so __call is only reached on actual typos. Surface the typo
+     * loudly with a "did you mean" hint so developers don't waste time
+     * staring at "method_not_callable" wondering what's wrong.
+     */
     public function __call($method, $args)
     {
-        
-        if (is_callable($this->api_rpc)) {
-            return call_user_func_array($this->api_rpc, $args);
-        } else {
-            $error = ['error'=>'methood_not_callable', 'method'=>$method];
-            // logit($error, "fatal");
-            $this->response($this->json($error), 404);
+        $available = get_class_methods($this);
+        $suggestion = null;
+        $bestDistance = PHP_INT_MAX;
+        foreach ($available as $candidate) {
+            if (str_starts_with($candidate, '__')) continue;
+            $d = levenshtein(strtolower($method), strtolower($candidate));
+            if ($d < $bestDistance) {
+                $bestDistance = $d;
+                $suggestion = $candidate;
+            }
         }
+        // Only suggest when the typo is plausibly close (≤3 edits and ≤40% of name length)
+        $closeEnough = $suggestion !== null
+            && $bestDistance <= 3
+            && $bestDistance <= max(1, (int) floor(strlen($method) * 0.4));
+
+        $error = [
+            'error'  => 'undefined_method',
+            'method' => $method,
+            'hint'   => "No method ZealPHP\\ZealAPI::{$method}() exists. "
+                      . ($closeEnough
+                          ? "Did you mean \$this->{$suggestion}()?"
+                          : 'Check the method name against the ZealAPI/REST class — or define it in your handler file.'),
+        ];
+        if ($closeEnough) {
+            $error['did_you_mean'] = $suggestion;
+        }
+        elog(
+            "ZealAPI: undefined method \$this->{$method}() called from API handler"
+            . ($closeEnough ? " — did you mean \$this->{$suggestion}()?" : ''),
+            'error'
+        );
+        // Stash the structured error and throw — processApi catches this and
+        // emits a clean 404 JSON response. Throwing (rather than just
+        // $this->response()) short-circuits the rest of the closure body, so a
+        // typo in a guard clause can't fall through into the success path.
+        $this->_undefinedMethodError = $error;
+        throw new \BadMethodCallException("ZealAPI: undefined method \$this->{$method}()");
     }
 
     /*

@@ -28,24 +28,36 @@ Running `php app.php` serves the same docs site locally. Set `ZEALPHP_SITE_URL` 
 | **ZealAPI** | File-based REST: drop `api/users/get.php` → `/api/users/get` works automatically |
 | **Templating** | Nested `App::render()` / `App::renderToString()` — single `_master.php`, component-based |
 | **Sessions** | All `session_*()` functions overridden via uopz — coroutine-safe, per-request isolation |
-| **Unit tests** | PHPUnit 11 — 42 unit tests + 38 integration tests, all green |
+| **Unit tests** | PHPUnit 11 — 130 unit tests + 46 integration tests, all green |
 | **Benchmarks** | OpenSwoole-powered concurrency with a modular `scripts/bench.sh` runner for wrk/ab sweeps through c=1000 |
 
-> **Performance:** 80K+ req/s with full PSR-15 middleware stack on a 16-core machine. See [PERF.md](PERF.md) for the methodology.
-> **Stability:** Alpha (v0.1.x). API may change between minor versions. Pin to a specific version in production.
+> **Performance:** 117K req/s text · 106K JSON · 50K templated — full PSR-15 stack (CORS + ETag + sessions + reflection-injected routing), 4 workers, AMD Ryzen 9 7900X. **Express on the same box: 20K / 22K / 12K — a 5× gap.**
+>
+> Two surprises in the methodology. **(1)** Raw OpenSwoole hits 142K text / 138K JSON — **+10% over raw Node http (129K / 132K)**, before any framework loads. **(2)** ZealPHP with full PSR-15 middleware still hits **91% of bare Node http's throughput on text, 80% on JSON**. That's because ZealPHP retains **82%** of its runtime's raw throughput; Express retains **15%** of Node's. The 5× gap is a framework-efficiency story, not a raw-runtime one.
+>
+> Reproduce: `./scripts/bench_vs_express.sh`. See [PERF.md](PERF.md) for environment, latency sweep, and head-to-head.
+> **Stability:** Alpha (v0.2.x). API may change between minor versions until v1.0. Pin to a specific version in production.
 
 ---
 
 ## Why ZealPHP?
 
-PHP powers 77% of the web, but its request-per-process model makes real-time, streaming, and high-concurrency apps awkward. ZealPHP is **not** another abstraction layer — it's a full-stack coroutine framework:
+**The mission: take your existing PHP code, put it on a long-lived async runtime, and unlock WebSocket, SSE, streaming, coroutines, and shared memory — without rewriting in Node, Go, or Python.**
 
-- **vs ReactPHP / AMPHP** — ZealPHP is an integrated framework (routing, middleware, templates, shared memory), not a library collection. Write `$app->route()` and ship.
-- **vs FrankenPHP / RoadRunner** — Those are Go-based servers. ZealPHP runs native PHP coroutines — `go()`, `Channel`, shared memory via `OpenSwoole\Table` — no Go process in between.
-- **vs Laravel Octane** — Octane wraps Swoole inside Laravel. ZealPHP is framework-agnostic and exposes the full coroutine runtime: SSE, WebSocket, streaming, task workers.
-- **vs raw Swoole/OpenSwoole** — ZealPHP adds routing, PSR-15 middleware, templating, session overrides, and a legacy PHP bridge so you don't wire up `onRequest` handlers manually.
+PHP powers 77% of the web, but the default request-per-process model (PHP-FPM, mod_php) cold-starts an interpreter per request, discards in-memory state, and forces WebSocket/SSE into separate sidecar processes. ZealPHP runs on **OpenSwoole** — a long-lived PHP server with native coroutines — and adds a framework layer that:
 
-**Legacy PHP bridge:** `session_start()`, `header()`, `$_GET` all work unchanged via uopz overrides. WordPress runs unmodified through the CGI worker.
+1. **Accepts your existing PHP code unchanged.** Drop `.php` files in `public/`. `session_start()`, `header()`, `$_GET` all work via uopz overrides. Many WordPress sites run through the CGI worker bridge — see [zealphp-wordpress](https://github.com/sibidharan/zealphp-wordpress) for the showcase and known limits.
+2. **Adds async primitives when you want them.** `go()`, `Channel`, WebSocket, SSE, shared memory (`Store` / `Counter`), timers, task workers — all framework-native, no extra services.
+3. **Lets you migrate file by file.** Start with fallback routing on day one; opt into coroutine mode when you're ready. No big-bang rewrite.
+
+### vs other ways to make PHP async
+
+- **vs PHP-FPM / mod_php** — FPM cold-starts every request. ZealPHP keeps workers warm; caches survive across requests, SSE/WebSocket cost ~0 to keep open.
+- **vs Laravel Octane** — Octane wraps Swoole inside a Laravel kernel. ZealPHP is framework-agnostic and exposes the runtime primitives directly. If you're on Laravel and want it faster, use Octane.
+- **vs FrankenPHP / RoadRunner** — Go servers fronting PHP. ZealPHP runs native PHP coroutines on OpenSwoole — no Go process in between.
+- **vs ReactPHP / AMPHP** — Library collections you wire together. ZealPHP is the integrated framework on top.
+- **vs raw Swoole / OpenSwoole** — ZealPHP adds routing, PSR-15 middleware, templates, session overrides, and the legacy bridge so you don't write `onRequest` handlers by hand.
+- **vs Node.js** — Node forces `await` / callbacks. ZealPHP coroutines let blocking-looking calls (`$db->query()`) yield under the hood — synchronous PHP idioms still compose.
 
 [Full comparison →](https://php.zeal.ninja/why-zealphp)
 
@@ -191,24 +203,27 @@ Now your WordPress, Drupal, or custom PHP app runs on OpenSwoole — persistent 
 
 ## Background Run
 
-Use the helper when you want ZealPHP detached from the terminal:
+Run ZealPHP detached from the terminal:
 
 ```bash
-scripts/zealphp.sh start
-scripts/zealphp.sh restart
-scripts/zealphp.sh status
-scripts/zealphp.sh logs
-scripts/zealphp.sh stop
+php app.php start -d        # daemonize
+php app.php restart
+php app.php status
+php app.php logs
+php app.php stop
 ```
 
-It writes the PID file to `/tmp/zealphp/zealphp.pid` by default, stores the
-server log in `/tmp/zealphp/server.log`, and tails `server.log`,
-`access.log`, `debug.log`, and `zlog.log` from the same directory. If a server
-is already running, the start command asks before killing and restarting it.
-`restart` stops the whole live server group, then starts it again with the same
-defaults without prompting.
+PID file lives at `/tmp/zealphp/zealphp_{port}.pid` (one per port — multiple
+apps on different ports are supported). Logs go to `/tmp/zealphp/`:
+`server.log`, `access.log`, `debug.log`, `zlog.log`. `php app.php logs` tails
+all four; add `--access`, `--debug`, `--server`, or `--zlog` to filter.
 
-Use `scripts/zealphp.sh foreground` if you want the attached mode back.
+If a server is already running on the same port, `start` prints the existing
+PID and exits cleanly instead of crashing. `restart` stops then starts using
+the same defaults. Target a specific instance with `-p PORT` on
+`stop`/`status`/`restart`.
+
+`scripts/zealphp.sh` is an optional shell wrapper around the same commands.
 
 ---
 
@@ -393,8 +408,8 @@ App::onWorkerStart(function($server, $workerId) use ($hitCounter) {
 2. Run `composer validate` and confirm tests pass.
 3. Tag both `zealphp` and `zealphp-project` with the same version:
    ```bash
-   git tag -a v0.2.0 -m "Release v0.2.0"
-   git push origin master && git push origin v0.2.0
+   git tag -a v0.2.1 -m "Release v0.2.1"
+   git push origin master && git push origin v0.2.1
    ```
 4. Trigger Packagist webhook for both packages.
 

@@ -492,16 +492,16 @@
         },
         {
             "name": "sibidharan/zealphp",
-            "version": "v0.2.0",
+            "version": "v0.2.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sibidharan/zealphp.git",
-                "reference": "9ceaa8dec9eecb51821a655a42c4b8cea05b6599"
+                "reference": "a22a5eb48fc16bcb449e159bccf8d14976dfba4c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/9ceaa8dec9eecb51821a655a42c4b8cea05b6599",
-                "reference": "9ceaa8dec9eecb51821a655a42c4b8cea05b6599",
+                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/a22a5eb48fc16bcb449e159bccf8d14976dfba4c",
+                "reference": "a22a5eb48fc16bcb449e159bccf8d14976dfba4c",
                 "shasum": ""
             },
             "require": {
@@ -524,7 +524,8 @@
             "autoload": {
                 "files": [
                     "src/utils.php",
-                    "src/Session/utils.php"
+                    "src/Session/utils.php",
+                    "src/apache_shims.php"
                 ],
                 "psr-4": {
                     "ZealPHP\\": "src/"
@@ -569,7 +570,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-05-14T05:36:55+00:00"
+            "time": "2026-05-14T21:20:58+00:00"
         }
     ],
     "packages-dev": [],

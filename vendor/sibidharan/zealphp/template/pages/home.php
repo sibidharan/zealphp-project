@@ -8,52 +8,23 @@ $siteUrl = site_url();
 <!-- Hero -->
 <section class="hero">
   <div class="container">
-    <h1>Zeal<span>PHP</span></h1>
+    <div class="zeal-mark">
+      <span class="zeal-bolt" aria-hidden="true">⚡</span>
+      <h1 data-text="ZealPHP">Zeal<span>PHP</span></h1>
+    </div>
     <p style="font-size:1.4rem;color:#fef3c7;font-weight:600;margin:.5rem auto .75rem;position:relative">
       The PHP Runtime for AI Web Apps</p>
     <p>Stream AI responses in 5 lines. WebSocket, SSE, shared memory, task workers —<br>
-       one server, one process. Go-level performance, PHP simplicity.</p>
+       one server, one process. Coroutine-native concurrency with PHP's developer experience.</p>
     <p style="font-size:.95rem;color:#94a3b8;margin-top:.25rem">Upgrade your existing PHP codebase to async — start without rewriting, migrate at your own pace.</p>
     <div class="cta">
       <a href="/getting-started" class="btn btn-primary">Get Started →</a>
-      <a href="https://github.com/sibidharan/zealphp" class="btn btn-outline" target="_blank">GitHub ↗</a>
+      <a href="/why-zealphp" class="btn btn-outline">Why ZealPHP? →</a>
+      <a href="https://deepwiki.com/sibidharan/zealphp" class="btn btn-outline" target="_blank" rel="noopener">Ask DeepWiki ↗</a>
     </div>
-    <div class="oss-badges" aria-label="Project badges">
-      <a href="https://deepwiki.com/sibidharan/zealphp" target="_blank" rel="noopener noreferrer">
-        <img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki">
-      </a>
-      <a href="https://packagist.org/packages/sibidharan/zealphp" target="_blank" rel="noopener noreferrer">
-        <img src="https://img.shields.io/packagist/v/sibidharan/zealphp?style=flat-square" alt="Packagist latest version">
-      </a>
-      <a href="https://packagist.org/packages/sibidharan/zealphp" target="_blank" rel="noopener noreferrer">
-        <img src="https://img.shields.io/packagist/dt/sibidharan/zealphp?style=flat-square" alt="Packagist downloads">
-      </a>
-      <a href="https://packagist.org/packages/sibidharan/zealphp" target="_blank" rel="noopener noreferrer">
-        <img src="https://img.shields.io/packagist/l/sibidharan/zealphp?style=flat-square" alt="MIT license">
-      </a>
-      <a href="https://github.com/sibidharan/zealphp/stargazers" target="_blank" rel="noopener noreferrer">
-        <img src="https://img.shields.io/github/stars/sibidharan/zealphp?style=flat-square&logo=github&logoColor=white" alt="GitHub stars">
-      </a>
-      <a href="https://www.php.net/" target="_blank" rel="noopener noreferrer">
-        <img src="https://img.shields.io/badge/PHP-8.3.x-777bb4?style=flat-square&logo=php&logoColor=white" alt="PHP 8.3.x">
-      </a>
-      <a href="https://github.com/sibidharan/zealphp/actions/workflows/tests.yml" target="_blank" rel="noopener noreferrer">
-        <img src="https://github.com/sibidharan/zealphp/actions/workflows/tests.yml/badge.svg" alt="GitHub Actions test status">
-      </a>
-      <a href="https://codecov.io/gh/sibidharan/zealphp" target="_blank" rel="noopener noreferrer">
-        <img src="https://codecov.io/gh/sibidharan/zealphp/branch/master/graph/badge.svg" alt="Coverage">
-      </a>
-      <a href="https://github.com/sibidharan/zealphp/blob/master/phpstan.neon" target="_blank" rel="noopener noreferrer">
-        <img src="https://img.shields.io/badge/PHPStan-level%201-brightgreen?style=flat-square&logo=php&logoColor=white" alt="PHPStan level 1">
-      </a>
-      <a href="https://github.com/sibidharan/zealphp/blob/master/CODE_OF_CONDUCT.md" target="_blank" rel="noopener noreferrer">
-        <img src="https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa?style=flat-square" alt="Contributor Covenant 2.1">
-      </a>
-      <a href="https://github.com/sponsors/sibidharan" target="_blank" rel="noopener noreferrer">
-        <img src="https://img.shields.io/github/sponsors/sibidharan?style=flat-square&logo=github&logoColor=white&label=Sponsor" alt="GitHub Sponsors">
-      </a>
-    </div>
-
+    <p style="font-size:.78rem;color:#a8a29e;margin-top:.5rem">
+      <a href="/why-zealphp" style="color:#fde68a;text-decoration:none">Why?</a> covers the problem PHP-FPM can't solve, where ZealPHP fits vs Laravel Octane / FrankenPHP / RoadRunner, and when it's the wrong choice.
+    </p>
     <!-- Streaming code demo -->
     <div class="hero-demo">
       <div class="hero-demo-code">
@@ -73,12 +44,23 @@ $siteUrl = site_url();
       </div>
     </div>
 
-    <div class="bench-note">With full middleware stack. 4 workers.</div>
+    <p style="text-align:center;color:#a8a29e;font-size:.92rem;margin:1.75rem auto 0;max-width:640px;position:relative">
+      And it's fast — here's the throughput on 4 workers, full middleware stack:
+    </p>
+
+    <div class="bench-method">
+      <strong>Method</strong> &nbsp;|&nbsp;
+      4 workers, full middleware stack, <code style="background:rgba(255,255,255,.05);padding:.1rem .25rem;border-radius:3px">ab -n 50000 -c 200 -k</code>, same machine, no DB
+      &nbsp;|&nbsp;
+      <a href="https://github.com/sibidharan/zealphp/blob/master/PERF.md" target="_blank" rel="noopener">PERF.md</a>
+      &nbsp;|&nbsp;
+      <a href="https://github.com/sibidharan/zealphp/blob/master/scripts/bench_vs_express.sh" target="_blank" rel="noopener">reproduce locally</a>
+    </div>
     <div class="bench">
-      <div class="bench-stat"><div class="num">95k</div><div class="label">req/s text</div></div>
-      <div class="bench-stat"><div class="num">90k</div><div class="label">req/s JSON</div></div>
-      <div class="bench-stat"><div class="num">65k</div><div class="label">req/s template</div></div>
-      <div class="bench-stat"><div class="num">0</div><div class="label">failures</div></div>
+      <div class="bench-stat"><div class="num">117k</div><div class="label">req/s text</div><div class="sub">avg 1.7 ms</div></div>
+      <div class="bench-stat"><div class="num">106k</div><div class="label">req/s JSON</div><div class="sub">avg 1.9 ms</div></div>
+      <div class="bench-stat"><div class="num">50k</div><div class="label">req/s template</div><div class="sub">avg 4.0 ms</div></div>
+      <div class="bench-stat"><div class="num">0</div><div class="label">failures</div><div class="sub">/ 150k reqs</div></div>
     </div>
     <div style="margin-top:1.5rem;position:relative">
       <table style="margin:0 auto;border-collapse:collapse;font-size:.78rem;max-width:740px;width:100%">
@@ -93,14 +75,14 @@ $siteUrl = site_url();
         </tr>
         <tr style="border-bottom:1px solid rgba(255,255,255,.06)">
           <td style="padding:.35rem .6rem;color:#94a3b8">OpenSwoole raw</td>
-          <td style="padding:.35rem .6rem;text-align:right;color:#94a3b8">298k</td>
-          <td style="padding:.35rem .6rem;text-align:right;color:#94a3b8">258k</td>
+          <td style="padding:.35rem .6rem;text-align:right;color:#94a3b8">142k</td>
+          <td style="padding:.35rem .6rem;text-align:right;color:#94a3b8">138k</td>
           <td style="padding:.35rem .6rem;text-align:right;color:#64748b">—</td>
         </tr>
         <tr style="border-bottom:1px solid rgba(255,255,255,.06)">
           <td style="padding:.35rem .6rem;color:#94a3b8">Node.js raw http</td>
-          <td style="padding:.35rem .6rem;text-align:right;color:#94a3b8">222k</td>
-          <td style="padding:.35rem .6rem;text-align:right;color:#94a3b8">281k</td>
+          <td style="padding:.35rem .6rem;text-align:right;color:#94a3b8">129k</td>
+          <td style="padding:.35rem .6rem;text-align:right;color:#94a3b8">132k</td>
           <td style="padding:.35rem .6rem;text-align:right;color:#64748b">—</td>
         </tr>
         <tr style="border-bottom:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02)">
@@ -108,44 +90,49 @@ $siteUrl = site_url();
         </tr>
         <tr style="border-bottom:1px solid rgba(255,255,255,.06)">
           <td style="padding:.4rem .6rem;color:var(--accent);font-weight:700">ZealPHP <span style="color:#64748b;font-weight:400;font-size:.68rem">built-in</span></td>
-          <td style="padding:.4rem .6rem;text-align:right;color:var(--accent);font-weight:700">95k</td>
-          <td style="padding:.4rem .6rem;text-align:right;color:var(--accent);font-weight:700">90k</td>
-          <td style="padding:.4rem .6rem;text-align:right;color:var(--accent);font-weight:700">65k</td>
+          <td style="padding:.4rem .6rem;text-align:right;color:var(--accent);font-weight:700">117k</td>
+          <td style="padding:.4rem .6rem;text-align:right;color:var(--accent);font-weight:700">106k</td>
+          <td style="padding:.4rem .6rem;text-align:right;color:var(--accent);font-weight:700">50k</td>
         </tr>
         <tr style="border-bottom:1px solid rgba(255,255,255,.06)">
           <td style="padding:.4rem .6rem;color:#e2e8f0">Express.js <span style="color:#64748b;font-size:.68rem">+5 npm pkgs</span></td>
-          <td style="padding:.4rem .6rem;text-align:right;color:#e2e8f0">87k</td>
-          <td style="padding:.4rem .6rem;text-align:right;color:#e2e8f0">105k</td>
-          <td style="padding:.4rem .6rem;text-align:right;color:#e2e8f0">36k</td>
+          <td style="padding:.4rem .6rem;text-align:right;color:#e2e8f0">20k</td>
+          <td style="padding:.4rem .6rem;text-align:right;color:#e2e8f0">22k</td>
+          <td style="padding:.4rem .6rem;text-align:right;color:#e2e8f0">12k</td>
         </tr>
         <tr style="border-bottom:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02)">
           <td colspan="4" style="padding:.35rem .6rem;color:#64748b;font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700">Other PHP frameworks <span style="font-weight:400;text-transform:none;letter-spacing:0">(community benchmarks)</span></td>
         </tr>
         <tr style="border-bottom:1px solid rgba(255,255,255,.06)">
           <td style="padding:.3rem .6rem;color:#64748b">Slim 4</td>
-          <td colspan="3" style="padding:.3rem .6rem;text-align:right;color:#10b981;font-weight:600;font-size:.75rem">~4k — 22x slower</td>
+          <td colspan="3" style="padding:.3rem .6rem;text-align:right;color:#94a3b8;font-weight:500;font-size:.75rem">~4k req/s</td>
         </tr>
         <tr style="border-bottom:1px solid rgba(255,255,255,.06)">
           <td style="padding:.3rem .6rem;color:#64748b">Symfony 7</td>
-          <td colspan="3" style="padding:.3rem .6rem;text-align:right;color:#10b981;font-weight:600;font-size:.75rem">~2k — 45x slower</td>
+          <td colspan="3" style="padding:.3rem .6rem;text-align:right;color:#94a3b8;font-weight:500;font-size:.75rem">~2k req/s</td>
         </tr>
         <tr>
           <td style="padding:.3rem .6rem;color:#64748b">Laravel 11</td>
-          <td colspan="3" style="padding:.3rem .6rem;text-align:right;color:#10b981;font-weight:600;font-size:.75rem">~500 — 180x slower</td>
+          <td colspan="3" style="padding:.3rem .6rem;text-align:right;color:#94a3b8;font-weight:500;font-size:.75rem">~500 req/s</td>
         </tr>
       </table>
-      <p style="text-align:center;color:#64748b;font-size:.7rem;margin-top:.75rem">
-        Same machine, 4 workers, <code style="background:rgba(255,255,255,.05);padding:.1rem .3rem;border-radius:3px;color:#94a3b8">ab -n 50000 -c 200 -k</code>.
-        ZealPHP beats Express on text and templates — Express wins on JSON (V8 JSON.stringify).<br>
-        ZealPHP needs zero npm packages. Express needs cors + ejs + express-session + session-file-store + body-parser.
-      </p>
-      <div style="margin-top:1rem;text-align:center">
-        <p style="color:#94a3b8;font-size:.75rem;margin-bottom:.5rem">Don't trust our numbers — run it yourself:</p>
-        <div class="qs-block" style="max-width:520px;margin:0 auto;text-align:left;padding:.75rem 1rem">
-          <div class="qs-line"><span class="qs-cmd"><span class="qs-prompt">$</span> scripts/bench_vs_express.sh</span><button class="qs-copy" data-copy="scripts/bench_vs_express.sh">copy</button></div>
-        </div>
-        <p style="color:#64748b;font-size:.68rem;margin-top:.4rem">Starts ZealPHP + Express + Node raw + OpenSwoole raw, benchmarks all 3 workloads, cleans up. <code style="background:rgba(255,255,255,.05);padding:.1rem .3rem;border-radius:3px;color:#94a3b8">WORKERS=8 CONCURRENCY=500</code> to customize.</p>
+      <div style="text-align:center;margin-top:1.25rem;padding:.85rem 1rem;background:rgba(245,158,11,.05);border:1px solid rgba(245,158,11,.2);border-radius:8px;max-width:760px;margin-left:auto;margin-right:auto">
+        <p style="margin:0 0 .55rem 0;color:#e7e5e4;font-size:.85rem;line-height:1.55">
+          <strong style="color:var(--accent)">The runtime is already faster.</strong>
+          OpenSwoole's bare HTTP server hits <strong style="color:var(--accent)">142k req/s text · 138k JSON</strong>
+          — versus Node's <strong style="color:#e2e8f0">129k · 132k</strong>.
+          <strong style="color:var(--accent)">+10% on text, +5% on JSON</strong>, before any framework loads.
+        </p>
+        <p style="margin:0;color:#e7e5e4;font-size:.85rem;line-height:1.55">
+          <strong style="color:var(--accent)">ZealPHP keeps 82%</strong> of that with full PSR-15 middleware on top.
+          <strong style="color:#e2e8f0">Express keeps 15%</strong> of raw Node's.
+          End result — ZealPHP with full middleware reaches
+          <strong style="color:var(--accent)">91% of bare Node http's throughput</strong>.
+        </p>
       </div>
+      <p style="text-align:center;color:#94a3b8;font-size:.85rem;margin-top:1.25rem">
+        <a href="/performance" style="color:var(--accent);font-weight:600;text-decoration:none">Concurrency sweep, latency percentiles, methodology, reproduction recipes &amp; caveats →</a>
+      </p>
     </div>
   </div>
 </section>
@@ -398,8 +385,8 @@ function chatSourceTab(btn, id) {
     </div>
 
     <div class="bold-claim">
-      <h3>Go is fast. ZealPHP is fast AND expressive.</h3>
-      <p>90k req/s on 4 workers. But you also get reflection-based injection, auto-serialization, and zero boilerplate.</p>
+      <h3>Expressive PHP with coroutine-grade concurrency</h3>
+      <p>~106k req/s in our 4-worker JSON benchmark, with reflection-based injection, auto-serialization, and no boilerplate. Numbers vary by workload — see methodology below.</p>
       <div class="code-compare">
         <div class="code-compare-panel">
           <div class="compare-label">ZealPHP — return anything</div>
@@ -427,8 +414,8 @@ function chatSourceTab(btn, id) {
     </div>
 
     <div class="bold-claim">
-      <h3>FastAPI can't hold 10k concurrent connections</h3>
-      <p>ZealPHP's multi-process workers + coroutines handle C1000K. FastAPI's single-process async struggles past a few thousand.</p>
+      <h3>Multi-process workers, coroutines per worker</h3>
+      <p>ZealPHP inherits OpenSwoole's architecture: <code>N</code> worker processes, each running thousands of coroutines on a single reactor loop. <a href="https://openswoole.com/" target="_blank" rel="noopener">OpenSwoole</a> is the runtime; ZealPHP is the framework layer. Real connection counts depend on workload, OS limits, and tuning — measure for your case.</p>
       <div class="code-compare">
         <div class="code-compare-panel">
           <div class="compare-label">ZealPHP — true parallelism</div>
@@ -459,100 +446,34 @@ redis_client.set(key, json.dumps(data))</code></pre>
   </div>
 </section>
 
-<!-- Migrate Your PHP Codebase -->
-<section class="section" style="background:var(--bg-dark);color:var(--code-text)">
-  <div class="container">
-    <h2 class="section-title" style="color:#fff">Migrate your PHP codebase to async</h2>
-    <p class="section-desc">Your existing code works unchanged. <code>session_start()</code>, <code>header()</code>, <code>$_GET</code> — all overridden via uopz to work inside the coroutine runtime.</p>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-top:2rem">
-      <div style="background:var(--code-bg);border:1px solid var(--border-dark);border-radius:var(--radius);padding:1.5rem">
-        <h3 style="color:var(--danger);font-size:1rem;margin-bottom:1rem">Before — 6 services</h3>
-        <ul style="list-style:none;padding:0;margin:0;font-size:.85rem;color:var(--text-light)">
-          <li style="padding:.35rem 0;border-bottom:1px solid var(--border-dark)">Nginx / Apache</li>
-          <li style="padding:.35rem 0;border-bottom:1px solid var(--border-dark)">PHP-FPM (cold start every request)</li>
-          <li style="padding:.35rem 0;border-bottom:1px solid var(--border-dark)">Redis (sessions, cache, pub/sub)</li>
-          <li style="padding:.35rem 0;border-bottom:1px solid var(--border-dark)">Socket.io / Ratchet (WebSocket)</li>
-          <li style="padding:.35rem 0;border-bottom:1px solid var(--border-dark)">Supervisor / cron (background tasks)</li>
-          <li style="padding:.35rem 0">SSE proxy or polling</li>
-        </ul>
-      </div>
-      <div style="background:var(--code-bg);border:1px solid var(--accent);border-radius:var(--radius);padding:1.5rem">
-        <h3 style="color:var(--accent);font-size:1rem;margin-bottom:1rem">After — 1 process</h3>
-        <div style="text-align:center;margin-bottom:1rem">
-          <code style="font-size:1.1rem;color:var(--accent);background:rgba(245,158,11,.1);padding:.4rem .8rem;border-radius:6px">php app.php</code>
-        </div>
-        <ul style="list-style:none;padding:0;margin:0;font-size:.85rem;color:var(--code-text)">
-          <li style="padding:.35rem 0;border-bottom:1px solid var(--border-dark)">HTTP + WebSocket + SSE server</li>
-          <li style="padding:.35rem 0;border-bottom:1px solid var(--border-dark)">Coroutine-safe sessions (no Redis)</li>
-          <li style="padding:.35rem 0;border-bottom:1px solid var(--border-dark)">Shared memory across workers</li>
-          <li style="padding:.35rem 0;border-bottom:1px solid var(--border-dark)">Task workers (no cron/supervisor)</li>
-          <li style="padding:.35rem 0;border-bottom:1px solid var(--border-dark)">Persistent connections, no cold starts</li>
-          <li style="padding:.35rem 0">WordPress runs unmodified</li>
-        </ul>
-      </div>
-    </div>
-
-    <div style="margin-top:2.5rem">
-      <h3 style="font-size:1.1rem;margin-bottom:1.25rem;color:#fff">The migration ladder — go at your own pace</h3>
-      <div style="display:grid;gap:.75rem">
-        <div style="display:grid;grid-template-columns:auto 1fr;gap:1rem;align-items:start;background:var(--code-bg);border:1px solid var(--border-dark);border-radius:var(--radius);padding:1rem 1.25rem">
-          <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(245,158,11,.15);color:var(--accent);font-size:.78rem;font-weight:700;flex-shrink:0">0</span>
-          <div>
-            <div style="font-weight:600;color:var(--code-text);font-size:.9rem;margin-bottom:.3rem">Drop in your entire app</div>
-            <code style="font-size:.78rem;color:var(--text-light)">App::superglobals(true); $app->setFallback(fn() => App::includeFile('index.php'));</code>
-            <div style="color:var(--text-muted);font-size:.78rem;margin-top:.25rem">WordPress, Drupal, any PHP app — runs unmodified on OpenSwoole.</div>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:auto 1fr;gap:1rem;align-items:start;background:var(--code-bg);border:1px solid var(--border-dark);border-radius:var(--radius);padding:1rem 1.25rem">
-          <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(245,158,11,.15);color:var(--accent);font-size:.78rem;font-weight:700;flex-shrink:0">1</span>
-          <div>
-            <div style="font-weight:600;color:var(--code-text);font-size:.9rem;margin-bottom:.3rem">Write LAMP-style PHP in <code>public/</code></div>
-            <code style="font-size:.78rem;color:var(--text-light)">public/about.php → /about &nbsp;·&nbsp; public/users/list.php → /users/list</code>
-            <div style="color:var(--text-muted);font-size:.78rem;margin-top:.25rem">File-based routing. <code>$_GET</code>, <code>session_start()</code>, <code>echo</code> — everything you know works.</div>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:auto 1fr;gap:1rem;align-items:start;background:var(--code-bg);border:1px solid var(--border-dark);border-radius:var(--radius);padding:1rem 1.25rem">
-          <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(245,158,11,.15);color:var(--accent);font-size:.78rem;font-weight:700;flex-shrink:0">2</span>
-          <div>
-            <div style="font-weight:600;color:var(--code-text);font-size:.9rem;margin-bottom:.3rem">Add REST APIs with <code>api/</code></div>
-            <code style="font-size:.78rem;color:var(--text-light)">api/users/get.php → GET /api/users &nbsp;·&nbsp; api/users/post.php → POST /api/users</code>
-            <div style="color:var(--text-muted);font-size:.78rem;margin-top:.25rem">Drop a PHP file, get a REST endpoint. ZealAPI auto-routes by filename. Zero config.</div>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:auto 1fr;gap:1rem;align-items:start;background:var(--code-bg);border:1px solid var(--border-dark);border-radius:var(--radius);padding:1rem 1.25rem">
-          <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(245,158,11,.15);color:var(--accent);font-size:.78rem;font-weight:700;flex-shrink:0">3</span>
-          <div>
-            <div style="font-weight:600;color:var(--code-text);font-size:.9rem;margin-bottom:.3rem">Use framework routes for new features</div>
-            <code style="font-size:.78rem;color:var(--text-light)">$app->route('/ws/chat', ...); $response->sse(...); yield $html;</code>
-            <div style="color:var(--text-muted);font-size:.78rem;margin-top:.25rem">WebSocket, SSE streaming, coroutines — available when you're ready, not forced upfront.</div>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:auto 1fr;gap:1rem;align-items:start;background:var(--code-bg);border:1px solid var(--accent);border-radius:var(--radius);padding:1rem 1.25rem">
-          <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(245,158,11,.25);color:var(--accent);font-size:.78rem;font-weight:700;flex-shrink:0">4</span>
-          <div>
-            <div style="font-weight:600;color:var(--accent);font-size:.9rem;margin-bottom:.3rem">Full coroutine mode</div>
-            <code style="font-size:.78rem;color:var(--text-light)">App::superglobals(false); // thousands of concurrent requests per worker</code>
-            <div style="color:var(--text-muted);font-size:.78rem;margin-top:.25rem">Replace superglobals with <code>G::instance()</code>. Per-coroutine isolation. Go-level concurrency.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div style="text-align:center;margin-top:1.5rem">
-      <a href="/why-zealphp" class="btn btn-outline" style="font-size:.85rem">Why ZealPHP? →</a>
-      <a href="/legacy-apps" class="btn btn-outline" style="font-size:.85rem;margin-left:.5rem">WordPress on ZealPHP →</a>
-    </div>
-  </div>
-</section>
-
 <!-- Quick start -->
 <section class="section" style="background:var(--bg-dark);color:#e2e8f0;padding-top:3rem;padding-bottom:3rem">
   <div class="container">
+
+    <!-- TL;DR install — fresh-box one-liner before the scaffold/clone/wordpress tabs.
+         Surfaces the curl|bash path for visitors who haven't installed PHP/OpenSwoole
+         at all yet; the tabbed scaffold below assumes those deps already exist. -->
+    <div style="background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.22);border-radius:8px;padding:1rem 1.25rem;margin-bottom:2rem;max-width:760px;margin-left:auto;margin-right:auto">
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.6rem">
+        <span style="font-size:1.1rem">⚡</span>
+        <strong style="color:#fff">Fresh machine? One line installs PHP 8.3 + OpenSwoole + uopz + composer:</strong>
+      </div>
+      <div class="qs-block" style="background:#0c0a09;padding:.65rem .85rem;margin:0;border:none">
+        <div class="qs-line" style="display:flex;align-items:center;gap:.5rem;font-family:var(--font-mono);font-size:.88rem">
+          <span style="color:#a8a29e">$</span>
+          <span style="flex:1;color:#e7e5e4">curl -fsSL https://php.zeal.ninja/install.sh | sudo bash</span>
+          <button class="qs-copy" data-copy="curl -fsSL https://php.zeal.ninja/install.sh | sudo bash" style="background:rgba(245,158,11,.18);color:var(--accent);border:1px solid rgba(245,158,11,.32);padding:.2rem .55rem;border-radius:4px;font-size:.72rem;cursor:pointer">copy</button>
+        </div>
+      </div>
+      <p style="margin:.55rem 0 0;font-size:.78rem;color:#94a3b8">
+        Ubuntu/Debian/WSL2 · macOS · auto-detects unsupported distros and prints manual steps · <a href="/getting-started#install" style="color:var(--accent)">inspect first</a>
+      </p>
+    </div>
+
     <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem">
       <div>
         <h2 style="color:#fff;margin-bottom:.25rem">Quick Start</h2>
-        <p style="color:#94a3b8;margin:0">From zero to running server in 60 seconds.</p>
+        <p style="color:#94a3b8;margin:0">PHP installed? From zero to running server in 60 seconds.</p>
       </div>
       <div style="display:flex;gap:.5rem;font-size:.78rem" class="qs-tabs">
         <button class="qs-tab active" data-tab="starter" onclick="qsTab('starter')">Starter Project</button>
@@ -563,7 +484,7 @@ redis_client.set(key, json.dumps(data))</code></pre>
 
     <div class="qs-panel active" data-panel="starter">
       <div class="qs-block">
-        <div class="qs-line"><span class="qs-num">1</span><span class="qs-cmd"><span class="qs-prompt">$</span> composer create-project sibidharan/zealphp-project:^0.1.1 my-app</span><button class="qs-copy" data-copy="composer create-project sibidharan/zealphp-project:^0.1.1 my-app">copy</button></div>
+        <div class="qs-line"><span class="qs-num">1</span><span class="qs-cmd"><span class="qs-prompt">$</span> composer create-project sibidharan/zealphp-project:^0.2.0 my-app</span><button class="qs-copy" data-copy="composer create-project sibidharan/zealphp-project:^0.2.0 my-app">copy</button></div>
         <div class="qs-line"><span class="qs-num">2</span><span class="qs-cmd"><span class="qs-prompt">$</span> cd my-app && php app.php</span><button class="qs-copy" data-copy="cd my-app && php app.php">copy</button></div>
         <div class="qs-line"><span class="qs-arrow">→</span><span class="qs-out">Server running at <code style="color:#fbbf24">http://localhost:8080</code></span></div>
       </div>
@@ -591,8 +512,8 @@ redis_client.set(key, json.dumps(data))</code></pre>
 
     <div class="qs-prereq">
       <span class="qs-prereq-label">Requires</span>
-      <code>PHP 8.3.x</code>
-      <code>OpenSwoole 25+</code>
+      <code>PHP 8.3+</code>
+      <code>OpenSwoole 22.1+</code>
       <code>uopz</code>
       <code>composer</code>
       <a href="/getting-started" class="qs-prereq-link">Install help →</a>
@@ -708,14 +629,46 @@ document.addEventListener('click', function(e) {
         ['🗃️', 'Store',      'Share AI conversation state across workers. Cross-worker shared memory — no Redis needed.',             '/store',      'OpenSwoole\\Table'],
         ['⏱️', 'Timers',     'Schedule recurring AI tasks. Polling, cleanup, model warmup, health checks.',                           '/timers',     'tick() · after()'],
         ['🌐', 'HTTP',        'Full HTTP/1.1 compliance. HEAD, OPTIONS, Range, redirects, CORS, ETag, gzip — all built-in.',           '/http',       'HTTP/1.1'],
-        ['📝', 'Templates',   'SSR streaming templates. Compose views with yield from. renderStream() for progressive HTML.',         '/templates',  'renderStream()'],
-        ['🔗', 'ZealAPI',     'Drop a PHP file in api/. It becomes a route. File-based REST — the simplest API pattern.',             '/api',        'file-based'],
+        ['📝', 'Components',  'SSR streaming components. Compose views with yield from. renderStream() for progressive HTML.',         '/templates',  'renderStream()'],
+        ['🔗', 'REST API',    'Drop a PHP file in api/. It becomes a route. File-based REST — the simplest API pattern.',             '/api',        'file-based'],
         ['🏗️', 'Legacy Apps','Run WordPress unmodified. CGI worker provides true global scope. Apache mod_php compatibility.',        '/legacy-apps','WordPress'],
       ];
       foreach ($features as [$icon, $title, $body, $href, $badge]) {
         App::render('/components/_card', compact('icon', 'title', 'body', 'href', 'badge'));
       }
       ?>
+    </div>
+  </div>
+</section>
+
+<!-- Migrate Your PHP Codebase -->
+<section class="section" style="background:var(--bg-dark);color:var(--code-text)">
+  <div class="container" style="max-width:860px">
+    <h2 class="section-title" style="color:#fff">Bring your PHP codebase along</h2>
+    <p class="section-desc" style="color:var(--text-light)">
+      <code>session_start()</code>, <code>header()</code>, <code>$_GET</code>, <code>echo</code> —
+      overridden via uopz so existing code runs unchanged inside the coroutine runtime.
+      Move at your own pace: drop your whole app in, or rewrite endpoint-by-endpoint.
+    </p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-top:1.5rem">
+      <div style="background:var(--code-bg);border:1px solid var(--border-dark);border-radius:var(--radius);padding:1.25rem">
+        <h3 style="color:var(--danger);font-size:.95rem;margin-bottom:.75rem">Today: Nginx + PHP-FPM + Redis + Socket.io + cron + …</h3>
+        <p style="font-size:.85rem;color:var(--text-light);margin:0">6 services, 6 failure points, 6 sets of config.</p>
+      </div>
+      <div style="background:var(--code-bg);border:1px solid var(--accent);border-radius:var(--radius);padding:1.25rem">
+        <h3 style="color:var(--accent);font-size:.95rem;margin-bottom:.75rem">On ZealPHP: <code style="font-size:1rem">php app.php</code></h3>
+        <p style="font-size:.85rem;color:var(--code-text);margin:0">HTTP + WebSocket + SSE + sessions + shared memory + task workers — one process.</p>
+      </div>
+    </div>
+
+    <p style="margin-top:1.5rem;color:var(--text-light);font-size:.92rem;line-height:1.65">
+      The migration ladder has 5 rungs (0 → 4). Rung 0 is "drop in your existing app, run <code>php app.php</code>." Rung 4 is full coroutine mode — <a href="/performance" style="color:var(--accent)">117k req/s on 4 workers</a>. Most teams stay on rungs 1–3 indefinitely; the upgrade path is opt-in, not forced.
+    </p>
+
+    <div style="text-align:center;margin-top:1.75rem">
+      <a href="/migration" class="btn btn-primary">See the full migration path →</a>
+      <a href="/legacy-apps" class="btn btn-outline" style="margin-left:.5rem">WordPress on ZealPHP →</a>
     </div>
   </div>
 </section>
@@ -737,96 +690,3 @@ document.addEventListener('click', function(e) {
   </div>
 </section>
 
-<!-- Live converter -->
-<section class="section">
-  <div class="container">
-    <h2 class="section-title">Try it — convert your config to ZealPHP</h2>
-    <p class="section-desc">Paste Apache <code>.htaccess</code> or nginx config. AI converts it to <code>app.php</code> in real-time.</p>
-    <div class="converter-split" style="display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-top:1.5rem;">
-      <div style="border-right:1px solid var(--border); display:flex; flex-direction:column;">
-        <div style="padding:.5rem .75rem; background:var(--bg-alt); font-size:.78rem; font-weight:600; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
-          <span>Input</span>
-          <select id="hp-preset" style="font-size:.75rem; padding:.2rem .4rem; border-radius:4px; border:1px solid var(--border); background:var(--bg);">
-            <option value="wordpress">WordPress .htaccess</option>
-            <option value="nginx-cms">nginx CMS</option>
-            <option value="redirects">Redirect rules</option>
-            <option value="">— paste your own —</option>
-          </select>
-        </div>
-        <textarea id="hp-input" style="flex:1; min-height:220px; border:none; padding:.75rem; font-family:var(--font-mono); font-size:.8rem; background:var(--code-bg); color:var(--code-text); resize:none; outline:none;"></textarea>
-        <div style="padding:.4rem .75rem; background:var(--bg-alt); display:flex; align-items:center; gap:.5rem;">
-          <button id="hp-btn" onclick="hpConvert()" style="padding:.35rem 1rem; background:var(--accent); color:#fff; border:none; border-radius:5px; cursor:pointer; font-size:.8rem; font-weight:600;">Convert →</button>
-          <span id="hp-status" style="font-size:.73rem; color:var(--text-muted);"></span>
-        </div>
-      </div>
-      <div style="display:flex; flex-direction:column;">
-        <div style="padding:.5rem .75rem; background:var(--bg-alt); font-size:.78rem; font-weight:600; color:var(--text-muted);">ZealPHP app.php</div>
-        <pre id="hp-output" style="flex:1; min-height:220px; max-height:320px; overflow:auto; padding:.75rem; margin:0; font-family:var(--font-mono); font-size:.8rem; background:var(--code-bg); color:var(--code-text); white-space:pre-wrap;"><span style="color:var(--text-muted);">// Click Convert to generate...</span></pre>
-        <div style="padding:.4rem .75rem; background:var(--bg-alt); font-size:.7rem; color:var(--text-muted);">Powered by gpt-4.1-mini · Cached for 1hr · <a href="/legacy-apps">Full docs →</a></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<script>
-(function(){
-  const HP = {
-    wordpress: "# BEGIN WordPress\n<IfModule mod_rewrite.c>\nRewriteEngine On\nRewriteBase /\nRewriteRule ^index\\.php$ - [L]\nRewriteCond %{REQUEST_FILENAME} !-f\nRewriteCond %{REQUEST_FILENAME} !-d\nRewriteRule . /index.php [L]\n</IfModule>\n# END WordPress",
-    'nginx-cms': "server {\n    listen 80;\n    server_name example.com;\n    root /var/www/html;\n\n    location / {\n        try_files $uri $uri/ /index.php?$args;\n    }\n    location ~ \\.php$ {\n        fastcgi_pass unix:/run/php/php-fpm.sock;\n    }\n    location ~* \\.(css|js|png)$ {\n        expires 30d;\n    }\n}",
-    redirects: "RewriteEngine On\nRewriteRule ^old-page$ /new-page [R=301,L]\nRewriteRule ^blog/(.*)$ /articles/$1 [R=302,L]\nRewriteRule ^docs$ https://docs.example.com [R=301,L]"
-  };
-  const presetEl = document.getElementById('hp-preset');
-  const inputEl = document.getElementById('hp-input');
-  presetEl.addEventListener('change', function() {
-    if (this.value && HP[this.value]) inputEl.value = HP[this.value];
-    else inputEl.value = '';
-  });
-  if (presetEl.value && HP[presetEl.value]) inputEl.value = HP[presetEl.value];
-  window.hpConvert = function() {
-    const input = inputEl.value.trim();
-    const output = document.getElementById('hp-output');
-    const status = document.getElementById('hp-status');
-    const btn = document.getElementById('hp-btn');
-    if (!input) { status.textContent = 'Paste a config first'; return; }
-    btn.disabled = true; btn.textContent = 'Converting...';
-    status.textContent = 'Streaming...'; output.textContent = '';
-    fetch('/api/convert', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({config: input})
-    }).then(function(r) {
-      const reader = r.body.getReader(), dec = new TextDecoder();
-      let buf = '';
-      function read() {
-        reader.read().then(function(result) {
-          if (result.done) { btn.disabled = false; btn.textContent = 'Convert →'; status.textContent = 'Done'; return; }
-          buf += dec.decode(result.value, {stream: true});
-          const lines = buf.split('\n'); buf = lines.pop();
-          for (const l of lines) {
-            if (l.startsWith('data: ') && !l.includes('[DONE]')) output.textContent += l.slice(6) + '\n';
-          }
-          output.scrollTop = output.scrollHeight;
-          read();
-        });
-      }
-      read();
-    }).catch(function(e) {
-      output.textContent = '// Error: ' + e.message;
-      btn.disabled = false; btn.textContent = 'Convert →'; status.textContent = 'Failed';
-    });
-  };
-})();
-</script>
-
-<!-- Build your first AI app -->
-<section class="section" style="background:var(--bg-dark);color:#e2e8f0;padding:3rem 0">
-  <div class="container" style="text-align:center">
-    <h2 style="color:#fff;margin-bottom:.5rem">From zero to running server in 60 seconds</h2>
-    <p style="color:#94a3b8;margin-bottom:1.5rem">Includes CLAUDE.md — your AI copilot understands ZealPHP out of the box.</p>
-    <div class="qs-block" style="max-width:600px;margin:0 auto 1.5rem;text-align:left">
-      <div class="qs-line"><span class="qs-num">1</span><span class="qs-cmd"><span class="qs-prompt">$</span> composer create-project sibidharan/zealphp-project my-app</span></div>
-      <div class="qs-line"><span class="qs-num">2</span><span class="qs-cmd"><span class="qs-prompt">$</span> cd my-app && php app.php</span></div>
-      <div class="qs-line"><span class="qs-arrow">→</span><span class="qs-out">Server running at <code style="color:#fbbf24">http://localhost:8080</code></span></div>
-    </div>
-    <a href="/getting-started" class="btn btn-primary" style="font-size:1rem;padding:.75rem 2rem">Get started →</a>
-  </div>
-</section>
