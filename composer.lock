@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "a5eb5a8ac5ffb0166228b282cf16155f",
+    "content-hash": "a0ae24b0942b6c19407ee482be212e52",
     "packages": [
         {
             "name": "openswoole/core",
@@ -492,16 +492,16 @@
         },
         {
             "name": "sibidharan/zealphp",
-            "version": "v0.2.4",
+            "version": "v0.2.5",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sibidharan/zealphp.git",
-                "reference": "41cf90b161c109d67963afb98fe37d3755ac98f5"
+                "reference": "371e3737a7d43f85a1b25862422ec58d860aa8f7"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/41cf90b161c109d67963afb98fe37d3755ac98f5",
-                "reference": "41cf90b161c109d67963afb98fe37d3755ac98f5",
+                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/371e3737a7d43f85a1b25862422ec58d860aa8f7",
+                "reference": "371e3737a7d43f85a1b25862422ec58d860aa8f7",
                 "shasum": ""
             },
             "require": {
@@ -570,7 +570,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-05-15T16:17:09+00:00"
+            "time": "2026-05-15T18:18:36+00:00"
         }
     ],
     "packages-dev": [],
