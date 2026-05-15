@@ -156,8 +156,29 @@ $siteUrl = site_url();
 })();
 </script>
 
+<!-- The Problem -->
+<section class="section section-problem">
+  <div class="container">
+    <h2 class="section-title">The PHP we love. The execution model we needed.</h2>
+    <p class="section-desc">
+      LAMP shipped the web &mdash; Apache, mod_php, then PHP-FPM. Twenty-five years of
+      request-per-process: spawn a worker, run the code, die when done. Shared-nothing
+      by design.
+    </p>
+    <p class="section-desc">
+      It still works. But it can't stream AI tokens. It can't push WebSocket events.
+      It can't share state between requests without bolting on Redis. Every
+      &ldquo;real-time&rdquo; feature your customers ask for needs another service.
+    </p>
+    <p class="section-desc section-problem-payoff">
+      <strong>ZealPHP keeps the PHP. Swaps the execution model.</strong>
+      One process, coroutines, persistent state &mdash; and your existing PHP codebase still runs.
+    </p>
+  </div>
+</section>
+
 <!-- Live AI Chat Demo -->
-<section class="section">
+<section class="section section-darkbg">
   <div class="container">
     <h2 class="section-title">Try it — live AI chat, streaming on this server</h2>
     <p class="section-desc">Powered by the <strong>OpenAI Agents SDK</strong> + ZealPHP SSE streaming. Multi-agent with tool use, streamed token-by-token.</p>
@@ -484,7 +505,7 @@ redis_client.set(key, json.dumps(data))</code></pre>
 
     <div class="qs-panel active" data-panel="starter">
       <div class="qs-block">
-        <div class="qs-line"><span class="qs-num">1</span><span class="qs-cmd"><span class="qs-prompt">$</span> composer create-project sibidharan/zealphp-project:^0.2.3 my-app</span><button class="qs-copy" data-copy="composer create-project sibidharan/zealphp-project:^0.2.3 my-app">copy</button></div>
+        <div class="qs-line"><span class="qs-num">1</span><span class="qs-cmd"><span class="qs-prompt">$</span> composer create-project sibidharan/zealphp-project:^0.2.4 my-app</span><button class="qs-copy" data-copy="composer create-project sibidharan/zealphp-project:^0.2.4 my-app">copy</button></div>
         <div class="qs-line"><span class="qs-num">2</span><span class="qs-cmd"><span class="qs-prompt">$</span> cd my-app && php app.php</span><button class="qs-copy" data-copy="cd my-app && php app.php">copy</button></div>
         <div class="qs-line"><span class="qs-arrow">→</span><span class="qs-out">Server running at <code style="color:#fbbf24">http://localhost:8080</code></span></div>
       </div>

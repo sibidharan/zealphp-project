@@ -177,7 +177,7 @@ BASH
           'lang' => 'bash',
           'code' => <<<'BASH'
 composer create-project \
-  sibidharan/zealphp-project:^0.2.3 \
+  sibidharan/zealphp-project:^0.2.4 \
   my-app
 cd my-app && php app.php
 BASH
@@ -385,6 +385,11 @@ BASH
       <strong>Port in use?</strong> Run <code>php app.php stop</code> or use <code>-p 9000</code> for a different port.<br>
       <strong>Extension not loaded?</strong> Check <code>php --ini</code> for the config path, ensure <code>extension=openswoole.so</code> is in a loaded <code>.ini</code>.<br>
       <strong>Permission denied on port 80?</strong> Use a port above 1024, or run with <code>setcap</code> / behind a reverse proxy.
+    </div>
+
+    <div style="margin:2.5rem 0 0;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+      <a href="/learn" class="btn-cta">Learn by Building &rarr;</a>
+      <span style="font-size:.85rem;color:var(--text-muted)">Everything verified? Build a Notes + AI Chat app over 14 lessons &mdash; htmx, SQLite, and SSE streaming.</span>
     </div>
 
   </div>
