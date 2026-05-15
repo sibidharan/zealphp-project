@@ -245,6 +245,31 @@ $app->setFallback(function() {
 | `ZealPHP\Store` | Cross-worker shared memory (OpenSwoole\Table) |
 | `ZealPHP\Counter` | Lock-free atomic counter |
 
+## Coding Standards
+
+### PHP Style
+- Follow **PSR-2** (https://www.php-fig.org/psr/psr-2/) for all PHP code.
+- Use `declare(strict_types=1)` in `src/` classes. Short array syntax, meaningful docblocks.
+
+### Separation of Concerns
+
+| Rule | Details |
+|------|---------|
+| No inline `<script>` in templates | All JS goes in `public/js/`. Templates are HTML-only. |
+| No inline `style=` or `<style>` in templates | All CSS goes in `public/css/`. Use CSS classes. |
+| No function definitions in templates | Extract helpers to `src/` classes (PSR-4 autoloaded). |
+| No function definitions in API files | API files define one closure (`$get`, `$post`, etc.). Business logic goes in `src/` service classes. |
+| `function_exists()` = wrong place | The function belongs in a class, autoloaded via Composer. |
+
+### Architecture Rules
+- **Business logic in `src/`** — proper OOP classes with constructors, autoloaded via Composer PSR-4.
+- **API endpoints in `api/`** (ZealAPI) — file-based REST routing. Use `route/` only for path-param routes, WebSocket, or Store tables.
+- **Thin route handlers** — 1–5 lines that call a `src/` service class. If a handler exceeds ~10 lines, extract to a service.
+- **`app.php` stays thin** — bootstrap only: middleware registration, `$app->run()`.
+
+### htmx Convention
+Set `hx-boost="true"` on `<body>` for automatic AJAX navigation with progressive enhancement. Prefer `hx-get`/`hx-post`/`hx-target`/`hx-swap` over custom `fetch()`. Use WebSocket (`App::ws()`) or SSE (`$response->sse()`) for server-push.
+
 ## Documentation
 
 Full docs with live demos: https://php.zeal.ninja
