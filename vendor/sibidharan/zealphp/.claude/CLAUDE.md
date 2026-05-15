@@ -71,6 +71,14 @@ PHPUnit 11 test suite lives in `tests/`. `ZEALPHP_TEST_PORT` env var sets the se
 
 ---
 
+## Development Gotchas
+
+- **Server restart required** for changes to `route/*.php`, `app.php`, `src/Middleware/`, and `src/App.php` — these load at startup. Template and `api/` file changes take effect immediately.
+- **Multiple instances**: if testing on a non-default port (e.g., 8090 via Traefik), ensure that instance is restarted too — `php app.php restart` only restarts the default port. Use `php app.php restart -p 8090`.
+- **Setting cookies in middleware**: use `$g->openswoole_response->cookie()` (raw OpenSwoole response), not the uopz `setcookie()` override — the PSR-7 response chain may not propagate cookies set via the wrapper.
+
+---
+
 ## Architecture
 
 ### Request Lifecycle
@@ -142,6 +150,7 @@ Reflection is cached per route at registration time — zero reflection overhead
 - `ETagMiddleware` — `W/"md5"` ETag on GET, returns 304 on `If-None-Match` match
 - `CompressionMiddleware` — reference gzip/deflate implementation for apps that disable OpenSwoole `http_compression`; the demo app does not register it
 - `RangeMiddleware` — RFC 7233 Range requests: `Accept-Ranges: bytes`, 206 single/multi-range, 416 unsatisfiable, `If-Range` ETag support
+- `SessionStartMiddleware` — eagerly starts a session and sends `Set-Cookie` for new visitors. `CoSessionManager` only starts sessions when a `PHPSESSID` cookie already exists (returning visitors); without this middleware, first-time visitors get no session cookie and session state resets every request. The `secure` flag auto-detects HTTPS (via `X-Forwarded-Proto`, `HTTPS`, or port 443) — works behind Traefik/Nginx and on direct HTTP. Override with `ZEALPHP_SESSION_SECURE` env var.
 
 ### HTTP Protocol Features
 
@@ -293,6 +302,61 @@ App::getServer()->task(['handler' => '/task/backup', 'args' => [...]]);
 
 Task workers run in coroutine mode (`task_enable_coroutine => true` is set by default).
 
+### AI Agent Architecture
+
+The Python notes agent (`examples/agents/notes_agent.py`) calls ZealPHP's HTTP API with the user's `PHPSESSID` cookie — same endpoints as the frontend. This ensures note mutations trigger WebSocket broadcasts for live cross-tab updates. `Chat::real()` passes `session_id` and `api_base` in the base64 payload. The agent uses `RunContextWrapper[AgentContext]` per OpenAI Agents SDK best practices. Notes API supports JSON responses via `Accept: application/json` content negotiation.
+
+---
+
+## Coding Standards
+
+### PHP Style
+- Follow **PSR-2** (https://www.php-fig.org/psr/psr-2/) for all PHP code.
+- Use `declare(strict_types=1)` in new `src/` classes.
+- Short array syntax (`[]` not `array()`), meaningful docblocks on public APIs.
+
+### Separation of Concerns — Hard Rules
+
+| Rule | Rationale |
+|------|-----------|
+| **No inline `<script>` blocks in templates** | All JS goes to `public/js/`. Templates produce HTML only. |
+| **No inline `style=` attributes or `<style>` blocks in templates** | All CSS goes to `public/css/`. Use CSS classes. |
+| **No PHP function definitions in templates** (`template/`) | Templates are view-only. Extract helpers to `src/` classes. |
+| **No PHP function definitions in API files** (`api/`) | API files define one closure (`$get`, `$post`, etc.) and delegate to `src/` service classes. |
+| **If you need `function_exists()` guard, the function is in the wrong place** | This means it can be re-declared — put it in a class autoloaded via PSR-4 instead. |
+
+### OOP and Autoloading
+- Business logic belongs in `src/` as proper classes with constructors, autoloaded via Composer PSR-4 (`ZealPHP\` namespace).
+- Use controllers/services in `src/` — not free functions scattered across route/api files.
+- The `src/Learn/` namespace demonstrates the pattern: `Auth.php`, `Chat.php`, `Notes.php`, `DB.php`, `WS.php` are autoloaded classes that API and route handlers delegate to.
+
+### Route vs API — When to Use Which
+
+| Layer | Use for | Example |
+|-------|---------|---------|
+| `api/` (ZealAPI) | REST endpoints — file-based, auto-routed | `api/users/get.php` → `GET /api/users` |
+| `route/` | Path-param routes, WebSocket, Store table registration, demo routes | `route/ws.php`, `route/streaming.php` |
+| `app.php` | Bootstrap only — middleware, `$app->run()` | Keep thin |
+
+**Routes are thin.** A route handler should be 1–5 lines that call a `src/` class. If a handler exceeds ~10 lines, extract the logic to a service class.
+
+### htmx Convention
+The site uses **htmx** globally. `_master.php` sets `hx-boost="true"` on `<body>`:
+- Every `<a>` and `<form>` is AJAX-ified automatically (htmx swaps the `<body>`, updates `<title>`, handles history)
+- Full-page navigation still works if JS is disabled (progressive enhancement)
+- After each swap, `htmx:afterSettle` fires — `initPageScripts()` in `_master.php` re-runs highlight.js and demo panels
+- Prefer `hx-get`/`hx-post` + `hx-target` + `hx-swap` over custom `fetch()` for standard interactions
+- For server-push (streaming, real-time), use WebSocket (`App::ws()`) or SSE (`$response->sse()`)
+
+### Known Tech Debt (do NOT copy these patterns)
+
+| Anti-pattern | Worst offenders |
+|-------------|----------------|
+| Inline `style=` attributes (~600 total) | `home.php`, `performance.php`, `why-zealphp.php`, `getting-started.php`, `migration.php` |
+| Inline `<script>` blocks | `home.php` (4 blocks, ~100 lines JS), `streaming.php`, `websocket.php`, `timers.php` |
+
+When modifying these files, extract inline JS/CSS to external files rather than adding more inline code.
+
 ---
 
 ## OSS Website
@@ -328,7 +392,7 @@ template/
     templates.php, legacy-apps.php
 ```
 
-CSS: `public/css/zealphp.css` — single file, CSS variables, indigo accent, no inline styles.
+CSS: `public/css/zealphp.css` — single file, CSS variables, amber accent. Legacy pages still have ~600 inline `style=` attrs (tech debt); new code must use CSS classes only.
 
 ### Demo API Endpoints
 
@@ -378,16 +442,111 @@ All ZealPHP usage examples live as first-class project files:
 | `Middleware/ETagMiddleware.php` | ETag generation + 304 Not Modified |
 | `Middleware/CompressionMiddleware.php` | Reference gzip/deflate middleware; only use when OpenSwoole `http_compression` is disabled |
 | `Middleware/RangeMiddleware.php` | RFC 7233 Range requests: Accept-Ranges, 206 single/multi-range, 416, If-Range ETag support |
+| `Middleware/SessionStartMiddleware.php` | Eager session start for first-time visitors — sets `PHPSESSID` cookie on first request |
 | `deploy/zealphp.service` | systemd service template (Type=simple, no -d) |
 
 ---
 
-## Scaffold Project (`~/zealphp-project`)
+## Companion repos — keep in sync
 
-The starter project at `~/zealphp-project` (repo: `sibidharan/zealphp-project`) is the template used by `composer create-project`. **Keep it in sync with this main repo:**
+ZealPHP has two companion repos that must stay aligned with framework releases:
 
-- When adding new framework features (new methods, new patterns), update `~/zealphp-project/.claude/CLAUDE.md` with the latest API reference.
-- When adding deploy artifacts (service files, configs), copy them to `~/zealphp-project/deploy/`.
-- After syncing, commit, force-update the `v0.1.1` tag, and push: `git tag -f v0.1.1 && git push origin main && git push origin -f v0.1.1`
+| Repo | Composer name | Role |
+|---|---|---|
+| **Scaffold** | `sibidharan/zealphp-project` | Template for `composer create-project`; ships `vendor/` checked in |
+| **WordPress showcase** | `sibidharan/zealphp-wordpress` | Demonstrates unmodified WordPress on ZealPHP |
 
-The starter project's `.claude/CLAUDE.md` should always reflect the latest ZealPHP API so AI tools can assist developers immediately after scaffolding.
+**Path discovery — never hardcode `~/zealphp-project`.** Different devs lay out their workspaces differently. Find each companion in this order, stop at the first hit:
+
+1. Env vars: `$ZEALPHP_PROJECT_DIR`, `$ZEALPHP_WORDPRESS_DIR`
+2. Sibling of main repo: `../zealphp-project`, `../zealphp-wordpress`
+3. Parent's siblings: `../../zealphp-project`, `../../zealphp-wordpress`
+4. Ask the user. If a companion isn't accessible, surface that in the release summary and skip cleanly — don't fail the whole release.
+
+**Ongoing sync (independent of releases):** when adding new framework APIs, update the scaffold's `.claude/CLAUDE.md` so AI tools assisting devs after `composer create-project` see the latest API. When adding deploy artifacts (systemd units, configs), copy to the scaffold's `deploy/`.
+
+---
+
+## Releasing a new version
+
+**Trigger phrases:** *"pump to vX.Y.Z"*, *"bump version"*, *"release vX.Y.Z"*, *"tag vX.Y.Z"*. Treat any of these as a multi-repo coordinated release — touch **every** user-visible reference to the previous version, in **every** locally-accessible companion repo. Don't leave caret refs (`^X.Y.Z`) alone "because semver handles it"; the displayed version is marketing copy and must reflect the latest release.
+
+### Pre-flight (gate the release)
+
+1. Working tree clean in every repo you'll touch — do **not** auto-stash; surface dirty trees to the user and stop on that repo.
+2. Tests pass in the main repo: `./vendor/bin/phpunit tests/Unit/` + integration tests with server up.
+3. The new tag doesn't already exist: `git tag --list 'vX.Y.Z'`.
+
+### Main repo — bump every reference
+
+Use `grep -rn '\bvX\.Y\.Z-1\b' --include='*.md' --include='*.php' .` (with the *previous* version) to confirm none missed. Bump these files:
+
+| File | What to bump |
+|---|---|
+| `CHANGELOG.md` | Insert new `[X.Y.Z] - YYYY-MM-DD` section above the previous one. Categorize Added / Changed / Fixed / Documentation (Keep a Changelog format) |
+| `README.md` | `composer create-project` example + the "How to release" tag command example |
+| `template/pages/getting-started.php` | `composer create-project` snippet |
+| `template/pages/home.php` | Quick Start panel install command — bump in **both** the span text and the `data-copy` attribute |
+| `template/pages/deployment.php` | Docker compose image tag |
+| `docs/deployment.md` | Docker `build -t` and `image:` examples |
+
+**Do NOT touch** (release-history artifacts, must remain accurate to their era):
+
+- Previous `[X.Y.Z]` sections in `CHANGELOG.md`
+- `PERF.md` "vX.Y.Z Baseline" / "vX.Y.Z — landed-in-this-version" optimization notes
+- Test/code comments referencing when a behavior was introduced (e.g. `tests/Unit/SecurityTest.php` comments)
+- `vendor/` (third-party version-string coincidences)
+
+### Commit, tag, push (main repo)
+
+```bash
+git add -A <bumped files>
+git commit -m "chore: release vX.Y.Z — <one-line summary>"
+git tag -a vX.Y.Z -m "Release vX.Y.Z
+
+<bullet-point highlights of headline changes>"
+
+# Push to EVERY configured remote — check `git remote -v`. Typical layout:
+#   origin    → private mirror (push first)
+#   origin1   → public GitHub (push second — triggers Packagist webhook)
+for remote in $(git remote); do
+  git push $remote master && git push $remote vX.Y.Z
+done
+```
+
+Verify Packagist picked up the tag: `curl -sS https://repo.packagist.org/p2/sibidharan/zealphp.json | python3 -c "import json,sys; print(json.load(sys.stdin)['packages']['sibidharan/zealphp'][0]['version'])"` should return `vX.Y.Z`.
+
+### Scaffold sync (after main tag is live on Packagist)
+
+```bash
+cd <scaffold-path>                            # discovered via the env-var/sibling chain above
+# Edit composer.json: "sibidharan/zealphp": "^X.Y.Z" (bump floor, not just caret)
+composer update sibidharan/zealphp --with-dependencies
+git add composer.json composer.lock vendor/
+git commit -m "chore: refresh composer.lock + vendor for ZealPHP vX.Y.Z"
+git tag -a vX.Y.Z -m "Release vX.Y.Z — tracks sibidharan/zealphp vX.Y.Z"
+for remote in $(git remote); do
+  git push $remote main && git push $remote vX.Y.Z
+done
+```
+
+The scaffold ships `vendor/` checked in so `composer create-project` is a single round-trip — that's why we refresh it on every release.
+
+### WordPress sync
+
+Usually a no-op for patch releases. WordPress's `composer.json` typically pins `"sibidharan/zealphp": "^X.Y"`, which auto-picks up `X.Y.Z+1` on next `composer update`.
+
+If working tree is dirty: skip cleanly and surface to the user. If you decide to bump the floor explicitly (e.g., users should be on at least this patch): same flow as scaffold.
+
+### Force-tag vs new patch tag
+
+| Scenario | Action |
+|---|---|
+| Cosmetic-only follow-up *to a just-pushed tag*, no installed-behavior change (e.g., display-version typo in docs) | `git tag -f vX.Y.Z <new-sha> && git push -f <remote> vX.Y.Z`. Note in annotated message that it's a re-tag |
+| Anything that changes installed behavior (code, vendored docs that ship inside the scaffold, etc.) | Cut a new patch tag `vX.Y.Z+1` instead. Force-pushing breaks downloaders who already have the tag cached |
+
+### Final verification
+
+1. `composer create-project sibidharan/zealphp-project temp-test` in a scratch dir installs cleanly with the new version.
+2. Live website spot-check: install command, Docker tag, hero version all match the new release.
+3. Packagist `p2` JSON returns the new tag for both packages.

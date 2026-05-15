@@ -3,6 +3,11 @@
 require_once __DIR__ . '/vendor/autoload.php';
 
 date_default_timezone_set('Asia/Kolkata');
+
+if (!defined('ZEALPHP_ASSET_VERSION')) {
+    $gitDesc = trim((string) @`git describe --long 2>/dev/null`);
+    define('ZEALPHP_ASSET_VERSION', $gitDesc ?: (string) time());
+}
 use OpenSwoole\Core\Psr\Response;
 use OpenSwoole\Coroutine as co;
 use OpenSwoole\Coroutine\Channel;
@@ -23,6 +28,7 @@ use ZealPHP\Middleware\CorsMiddleware;
 use ZealPHP\Middleware\CompressionMiddleware;
 use ZealPHP\Middleware\ETagMiddleware;
 use ZealPHP\Middleware\RangeMiddleware;
+use ZealPHP\Middleware\SessionStartMiddleware;
 use ZealPHP\Store;
 use ZealPHP\Counter;
 
@@ -76,6 +82,7 @@ if (!$benchMode) {
     $app->addMiddleware(new CorsMiddleware());         // outermost — handles preflight, adds Allow-Origin
     $app->addMiddleware(new ETagMiddleware());         // generates ETag, returns 304 on cache hit
     $app->addMiddleware(new RangeMiddleware());       // Range / 206 Partial Content (RFC 7233)
+    $app->addMiddleware(new SessionStartMiddleware()); // eager session start for new visitors
     if ($compressionMiddleware) {
         $app->addMiddleware(new CompressionMiddleware());
     }

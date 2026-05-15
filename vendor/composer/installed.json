@@ -513,17 +513,17 @@
         },
         {
             "name": "sibidharan/zealphp",
-            "version": "v0.2.1",
-            "version_normalized": "0.2.1.0",
+            "version": "v0.2.3",
+            "version_normalized": "0.2.3.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sibidharan/zealphp.git",
-                "reference": "628d6554e6a1de01223aaeb0d1adf141c0762068"
+                "reference": "e6a4e0a33eabbd98ce5c6980814a0a04ce73c562"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/628d6554e6a1de01223aaeb0d1adf141c0762068",
-                "reference": "628d6554e6a1de01223aaeb0d1adf141c0762068",
+                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/e6a4e0a33eabbd98ce5c6980814a0a04ce73c562",
+                "reference": "e6a4e0a33eabbd98ce5c6980814a0a04ce73c562",
                 "shasum": ""
             },
             "require": {
@@ -542,7 +542,7 @@
                 "phpstan/phpstan": "^1.12",
                 "phpunit/phpunit": "^11.0"
             },
-            "time": "2026-05-14T21:26:26+00:00",
+            "time": "2026-05-15T09:09:58+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -562,7 +562,7 @@
             "authors": [
                 {
                     "name": "Sibidharan",
-                    "email": "sibi.nandhu@gmail.com"
+                    "email": "sibi@selfmade.ninja"
                 }
             ],
             "description": "Coroutine-native PHP framework on OpenSwoole — async HTTP, WebSocket, streaming, and real-time applications.",

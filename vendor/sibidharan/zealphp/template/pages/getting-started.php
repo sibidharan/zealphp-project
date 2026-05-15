@@ -5,6 +5,11 @@
     <h1 class="section-title">Getting Started</h1>
     <p class="section-desc">From a fresh machine to a running ZealPHP app — install dependencies, scaffold a project, write your first route, deploy.</p>
 
+    <div style="margin:1.25rem 0;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+      <a href="/learn" class="btn-cta">Learn by Building &rarr;</a>
+      <span style="font-size:.85rem;color:var(--text-muted)">14-lesson tutorial — build a Notes + AI Chat app with htmx, SQLite, and SSE streaming.</span>
+    </div>
+
     <!-- TL;DR install — surfaced above the architecture diagram so visitors
          who just want to try it can copy a single line. Full walkthrough
          (with manual steps, scaffold, first page, deploy) lives below. -->
@@ -172,7 +177,7 @@ BASH
           'lang' => 'bash',
           'code' => <<<'BASH'
 composer create-project \
-  sibidharan/zealphp-project:^0.2.1 \
+  sibidharan/zealphp-project:^0.2.3 \
   my-app
 cd my-app && php app.php
 BASH
