@@ -1,5 +1,0 @@
-<pre>
-<?php
-phpinfo();
-?>
-</pre>

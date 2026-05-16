@@ -1,0 +1,17 @@
+# Composer dependencies — recreated by `composer install` after
+# `composer create-project sibidharan/zealphp-project`. Was tracked
+# through v0.2.16; v0.2.17 removed to follow standard PHP library practice.
+# composer.lock IS tracked for reproducible installs across machines.
+/vendor/
+
+# Local runtime / IDE
+.phpunit.result.cache
+/storage/
+/.sessions/
+/.cache/
+/tmp/
+.env
+*.key
+/.idea/
+/.vscode/
+*.swp

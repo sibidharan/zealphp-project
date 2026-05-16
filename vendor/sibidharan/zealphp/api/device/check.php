@@ -1,5 +1,0 @@
-<?
-
-$check = function(){
-    echo "Hello";
-};
