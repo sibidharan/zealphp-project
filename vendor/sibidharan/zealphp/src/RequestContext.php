@@ -52,6 +52,10 @@ class RequestContext
     public ?int $cache_expire = null;
     public ?string $cache_limiter = null;
     public ?string $session_module_name = null;
+    // Per-request memoization scratch space — back-end for once() / has() / forget().
+    // Keyed by caller-chosen string. Lifetime matches RequestContext (per coroutine
+    // in coroutine mode, per request in superglobals mode after the manager resets).
+    public array $memo = [];
 
     private function __construct()
     {
@@ -99,26 +103,38 @@ class RequestContext
         // read is a bug in the caller — surface it instead of silently
         // creating a dynamic property. PHP emits an undefined-property
         // notice automatically when the key is missing.
+        //
+        // After unset() on a declared typed property the slot is "uninitialized";
+        // reading it by ref would throw "must not be accessed before initialization".
+        // We return a ref to a local null in that case, matching the missing-key
+        // behavior — callers see the same null, regardless of how the slot got there.
         $null = null;
         $ref =& $null;
-        if (property_exists($this, $key)) {
+        if (property_exists($this, $key) && isset($this->$key)) {
             $ref =& $this->$key;
         }
         return $ref;
     }
 
     /**
-     * __set fires only for undeclared properties — declared typed slots
-     * bypass it entirely (PHP semantics). In superglobals mode we keep the
+     * __set fires for undeclared properties AND for declared typed properties
+     * that have been unset() (the slot is "uninitialized" so direct access
+     * routes through __set on assignment). In superglobals mode we keep the
      * legacy bridge to `$GLOBALS[$key]` so pre-coroutine code that stashed
      * values via `$g->custom = $val` keeps working. In coroutine mode the
-     * typed properties are the contract; an undeclared write is a typo and
-     * is rejected loudly.
+     * typed properties are the contract; we re-initialize the declared slot
+     * (preserves PHP's type-check via direct property assignment) and reject
+     * any other write loudly so typos still surface.
      */
     public function __set($key, $value)
     {
         if (App::$superglobals) {
             $GLOBALS[$key] = $value;
+            return;
+        }
+        if (property_exists($this, $key)) {
+            // Declared-but-unset slot: direct write bypasses __set and re-inits.
+            $this->$key = $value;
             return;
         }
         throw new \BadMethodCallException(
@@ -136,6 +152,49 @@ class RequestContext
     public static function set($key, $value)
     {
         self::instance()->$key = $value;
+    }
+
+    /**
+     * Compute once per request, cache for the rest of the request.
+     *
+     * Safe alternative to `static $cache = []` inside a function. Computes
+     * `$fn()` the first time it's called with `$key` in this request, caches
+     * the result on the per-coroutine RequestContext, returns the cached
+     * value on subsequent calls. The cache is freed automatically when the
+     * coroutine ends — no state survives to the next request.
+     *
+     * Mirrors Laravel 11's `once()` helper. Use this anywhere you'd reach
+     * for `static $foo = ...` for request-scoped memoization but want to
+     * avoid leaking state into worker process memory.
+     *
+     * ```
+     * $user = RequestContext::once('current_user', fn() => Auth::loadUser($id));
+     * ```
+     */
+    public static function once(string $key, callable $fn): mixed
+    {
+        $ctx = self::instance();
+        if (!array_key_exists($key, $ctx->memo)) {
+            $ctx->memo[$key] = $fn();
+        }
+        return $ctx->memo[$key];
+    }
+
+    /**
+     * True if once($key, ...) has been computed in this request.
+     */
+    public static function has(string $key): bool
+    {
+        return array_key_exists($key, self::instance()->memo);
+    }
+
+    /**
+     * Discard the memoized value for $key in this request. The next once()
+     * call with the same key will recompute.
+     */
+    public static function forget(string $key): void
+    {
+        unset(self::instance()->memo[$key]);
     }
 }
 

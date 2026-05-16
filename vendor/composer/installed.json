@@ -513,17 +513,17 @@
         },
         {
             "name": "sibidharan/zealphp",
-            "version": "v0.2.8",
-            "version_normalized": "0.2.8.0",
+            "version": "v0.2.10",
+            "version_normalized": "0.2.10.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sibidharan/zealphp.git",
-                "reference": "1e28fc3e3cf4ac4e2bbec4f6d557e8fd55d2cc38"
+                "reference": "54dddee857f4c807fa090be44efb6d52d189da8f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/1e28fc3e3cf4ac4e2bbec4f6d557e8fd55d2cc38",
-                "reference": "1e28fc3e3cf4ac4e2bbec4f6d557e8fd55d2cc38",
+                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/54dddee857f4c807fa090be44efb6d52d189da8f",
+                "reference": "54dddee857f4c807fa090be44efb6d52d189da8f",
                 "shasum": ""
             },
             "require": {
@@ -542,7 +542,7 @@
                 "phpstan/phpstan": "^1.12",
                 "phpunit/phpunit": "^11.0"
             },
-            "time": "2026-05-16T02:44:20+00:00",
+            "time": "2026-05-16T15:14:11+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
