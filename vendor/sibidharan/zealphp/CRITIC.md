@@ -218,10 +218,10 @@ Five framework releases plus scaffold sync in 24 hours, all triggered by communi
 - **Assessment:** Right for shops that already run FPM. The bridge is for shops that explicitly don't want two runtimes. Both are valid migration ladders.
 - **Resolved by:** acknowledging the alternative; the bridge has a smaller niche than the original framing implied.
 
-#### "Bridge is the whole framework"
-- **Raised by:** user (self-correction)
-- **Assessment:** Correct framing issue — the thread had narrowed to debating one optional feature. The framework has file-based routing, PSR-15 middleware, WebSocket, streaming, templates, CLI, 8 PSRs, etc. Bridge is one feature, not the product.
-- **Resolved by:** explicit reframe in the consolidated #phpc post + in docs
+#### "Does the bridge look like the whole framework?" (calibration check, not a claim)
+- **Raised by:** user (mid-conversation calibration question — *"the bridge is not the whole zealphp right!?"*)
+- **Assessment:** The question itself was the value. The user wasn't asserting that the bridge was the whole framework — they were checking whether the *public framing* had narrowed to that point, because the assistant kept over-emphasizing the bridge in replies as a reaction to attackers. The check was correct: the thread had drifted into debating one optional feature.
+- **Resolved by:** explicit reframe of the project — a Swoole framework with file-based routing, htmx-first templates, streaming primitives, single-binary deploy, 8 PSRs, *plus* an optional CGI bridge for the migration tail. The bridge is one feature, not the headline.
 
 ---
 
@@ -275,6 +275,25 @@ Five framework releases plus scaffold sync in 24 hours, all triggered by communi
 - Force-tagging at GitHub didn't help — Packagist's tag→commit cache is sticky
 - Solution: fresh `v0.2.9` scaffold tag at the corrected commit, no force-push
 - Lesson: when force-tag is needed for behavior, Packagist will refuse to re-index. CLAUDE.md's "cut a new tag" guidance is correct.
+
+### v0.2.10 — Discipline-contract sprint
+**Triggered by:** coroutine-isolation commenter on Reddit (the "per-coroutine isolation only covers framework state, user statics still leak" framing)
+
+- Added `RequestContext::once($key, $fn)` + `has()` + `forget()` — request-scoped memoization helper, mirrors Laravel 11's `once()`. Safe alternative to `static $cache = []`.
+- Added worker-recycle access-log line: `[recycle] worker N exited after K requests, peak RSS X MB, uptime Ys` (silence with `ZEALPHP_RECYCLE_LOG=0`). Makes the `max_request` backstop visible in production logs.
+- Added `IniIsolationMiddleware` (opt-in via `ZEALPHP_INI_ISOLATE=1`) — snapshots `ini_set()` changes at request entry, restores them at exit.
+- Fixed handler-stack accumulation across requests in superglobals mode (`SessionManager::__invoke` now resets `$g->error_handlers_stack`, `$g->exception_handlers_stack`, `$g->shutdown_functions`). Coroutine mode was already safe.
+- New docs sections: "What survives a request" + coroutine safety matrix on `/coroutines`, Store consistency semantics on `/store`, OPcache production tuning in `docs/deployment.md`.
+- Created CRITIC.md (this file).
+
+### v0.2.11 — Open-redirect hardening + docs cleanup
+**Triggered by:** test-coverage audit that uncovered a leading-whitespace bypass of the v0.2.5 redirect scheme guard
+
+- **Security:** `Response::redirect()` now rejects leading/trailing whitespace in the URL. v0.2.5's `preg_match('#^(javascript|data|vbscript):#i', $url)` was bypassable with `   javascript:alert(1)` — browsers strip leading whitespace from `Location` header values before parsing, so the malicious URL slipped past the scheme regex and executed.
+- **Security:** Backslash anywhere in the redirect URL is also rejected (`/\evil.com`, `\\evil.com` are parsed as protocol-relative redirects by many browsers — defense in depth against same bypass class).
+- 7 new redirect regression tests in `tests/Unit/SecurityTest.php`.
+- 17 new tests in `tests/Unit/RequestContextInvariantsTest.php` pinning the v0.2.6 architectural contracts (G ↔ RequestContext class_alias, strict __set, response state location, ApacheContext lazy alloc, etc.).
+- Website docs cleanup: deployment env var table rewritten with all 20 `ZEALPHP_*` env vars; migration page updated for v0.2.6 response-state move; sessions page notes the rename + handler-stack reset; middleware page adds `SessionStartMiddleware` + `IniIsolationMiddleware` entries; README drops the deleted `prefork_request_handler` reference.
 
 ---
 
