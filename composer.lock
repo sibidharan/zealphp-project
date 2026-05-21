@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "555a7219aea27fbd22625ad3e48f3b19",
+    "content-hash": "e15b9987d921fa5e64110312f6c333c3",
     "packages": [
         {
             "name": "openswoole/core",
@@ -492,16 +492,16 @@
         },
         {
             "name": "sibidharan/zealphp",
-            "version": "v0.2.33",
+            "version": "v0.2.34",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sibidharan/zealphp.git",
-                "reference": "5619dce734adf5e1f7410499d9eae861d89d59da"
+                "reference": "a4b8e01c326aa2b4589927031f5e7bf35586a4be"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/5619dce734adf5e1f7410499d9eae861d89d59da",
-                "reference": "5619dce734adf5e1f7410499d9eae861d89d59da",
+                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/a4b8e01c326aa2b4589927031f5e7bf35586a4be",
+                "reference": "a4b8e01c326aa2b4589927031f5e7bf35586a4be",
                 "shasum": ""
             },
             "require": {
@@ -517,6 +517,7 @@
                 "psr/simple-cache": "^3.0"
             },
             "require-dev": {
+                "infection/infection": "^0.29",
                 "phpstan/phpstan": "^2.1",
                 "phpunit/phpunit": "^11.0"
             },
@@ -570,7 +571,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-05-21T02:45:01+00:00"
+            "time": "2026-05-21T05:07:38+00:00"
         }
     ],
     "packages-dev": [],
