@@ -18,6 +18,11 @@ App::superglobals(false);
 
 // Bind to 0.0.0.0 for container / reverse-proxy deployments. For laptop dev,
 // use '127.0.0.1' to keep the port off the network until you're ready.
+//
+// Document root — the folder every implicit route + static asset resolves
+// against (public/about.php → /about). Defaults to 'public/'; uncomment to
+// serve a different directory. Like all App config, set it BEFORE App::init().
+// App::documentRoot('public');
 $app = App::init('0.0.0.0', 8080);
 
 // ─── Middleware stack ───────────────────────────────────────────────

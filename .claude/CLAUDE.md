@@ -32,7 +32,7 @@ php app.php --help
 
 ```
 app.php          — Entry point: configure framework, define routes, call $app->run()
-public/          — Web root: static files (CSS, JS, images) + PHP page files
+public/          — Document root (the default; set via App::documentRoot() before App::init()): static files + PHP page files
 route/           — Route files: auto-included at startup, define additional routes
 template/        — Templates: rendered via App::render('template_name', $vars)
 api/             — File-based REST API: api/data/get.php → GET /api/data
