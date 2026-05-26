@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "7ce5fed578e0af4a97280140d699a646",
+    "content-hash": "2b9ed24cfc5a389558f23562074e44f0",
     "packages": [
         {
             "name": "dflydev/dot-access-data",
@@ -964,21 +964,20 @@
         },
         {
             "name": "sibidharan/zealphp",
-            "version": "v0.2.43",
+            "version": "v0.3.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sibidharan/zealphp.git",
-                "reference": "1ab5d4533cc0aedc43fe21579ef4b3c733dd1b52"
+                "reference": "3777ce1c7f113fe0b277d2d0da88ae62ec10d13d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/1ab5d4533cc0aedc43fe21579ef4b3c733dd1b52",
-                "reference": "1ab5d4533cc0aedc43fe21579ef4b3c733dd1b52",
+                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/3777ce1c7f113fe0b277d2d0da88ae62ec10d13d",
+                "reference": "3777ce1c7f113fe0b277d2d0da88ae62ec10d13d",
                 "shasum": ""
             },
             "require": {
                 "ext-openswoole": ">=22.0",
-                "ext-uopz": "*",
                 "league/commonmark": "^2.8",
                 "openswoole/core": "^22.1.5",
                 "openswoole/ide-helper": "^22.0.1",
@@ -994,6 +993,10 @@
                 "phpstan/phpstan": "^2.1",
                 "phpunit/phpunit": "^11.0",
                 "predis/predis": "^2.2"
+            },
+            "suggest": {
+                "ext-uopz": "Legacy fallback if ext-zealphp is not available",
+                "ext-zealphp": "Recommended: per-request function overrides + per-coroutine superglobals (pie install sibidharan/ext-zealphp)"
             },
             "type": "library",
             "autoload": {
@@ -1045,7 +1048,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-05-25T11:36:06+00:00"
+            "time": "2026-05-26T14:31:05+00:00"
         },
         {
             "name": "symfony/deprecation-contracts",
