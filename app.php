@@ -10,10 +10,9 @@ use ZealPHP\Middleware\ETagMiddleware;
 use ZealPHP\Middleware\RangeMiddleware;
 use ZealPHP\Middleware\SessionStartMiddleware;
 
-// Coroutine mode — per-request state isolated via Coroutine::getContext().
-// Recommended default for new projects (thousands of concurrent requests per worker).
-// Flip to App::superglobals(true) only for migration scenarios where unmodified
-// legacy code needs access to $_GET / $_POST / $_SESSION as PHP-FPM expects.
+// Recommended default for new projects. Each request gets its own isolated
+// state so many requests can run at the same time safely. Leave this as-is
+// unless you're migrating a legacy PHP app — see https://php.zeal.ninja/learn/mental-model
 App::superglobals(false);
 
 // Bind to 0.0.0.0 for container / reverse-proxy deployments. For laptop dev,
