@@ -215,30 +215,69 @@ $hits = new Counter('hits');
 $hits->increment();
 ```
 
-## Legacy App Support (WordPress, etc.)
+## Lifecycle modes — `App::mode()` (v0.3.x)
 
-To run unmodified PHP apps like WordPress:
+Pick a lifecycle preset with `App::mode()` **before `App::init()`**:
+
+| Mode | Use for |
+|------|---------|
+| `App::mode('coroutine')` | **Default for new apps.** Per-coroutine `RequestContext` isolation + HOOK_ALL non-blocking I/O. Recommended. |
+| `App::mode('coroutine-legacy')` | Traditional request-style PHP (the PHP-FPM "fresh state per request" model) run **concurrently** under coroutines. Every request-state primitive — the 7 superglobals, `$GLOBALS`/`global $x`, class & function `static`, `define()`, `ini_set`, `putenv` — is isolated per coroutine. **Requires ext-zealphp.** |
+| `App::mode('legacy-cgi')` | Unmodified WordPress / Drupal — one CGI subprocess per request (mod_php-style global-scope isolation). |
+| `App::mode('mixed')` | Symfony / Laravel — real `$_SESSION`, no per-include CGI fork cost, sequential per worker. |
+
+`App::isolation()` exposes the same coupling directly; the standalone setters
+(`App::coroutineGlobalsIsolation()`, `App::coroutineStaticsIsolation()`,
+`App::silentRedeclare()`, `App::includeIsolation()`, `App::defineIsolation()`,
+`App::keepGlobals()`) give per-knob control.
+
+### ext-zealphp — the per-coroutine isolation engine
+
+`coroutine-legacy` needs **ext-zealphp**, ZealPHP's purpose-built C extension
+(replaces the uopz dependency as of v0.3.0). It dlsym's OpenSwoole's
+`on_yield`/`on_resume`/`on_close` scheduler callbacks and snapshots/restores
+per-coroutine state across each yield. Install:
+
+```bash
+pie install sibidharan/ext-zealphp
+php -m | grep zealphp          # verify it's loaded (NTS-only)
+```
+
+When ext-zealphp is absent, `App::mode('coroutine-legacy')` refuses to boot
+(the superglobals-under-coroutines combo would race across requests).
+
+> **Known limitation (PHP 8.4 / 8.5):** coroutine-legacy *code* isolation
+> (silent function/class redeclare + `require_once` re-execution) has a
+> pre-existing heap-corruption race under heavy *concurrent class autoloading*
+> on PHP 8.4/8.5 (tracked). It is **not** a state leak — *state* isolation is
+> solid on 8.3, 8.4 and 8.5. For affected apps on 8.4/8.5, use
+> `App::mode('legacy-cgi')` or run on PHP 8.3.
+
+### Legacy app catch-all (pretty permalinks)
+
 ```php
-App::superglobals(true);       // Enable $_GET, $_POST, $_SESSION etc.
-App::$ignore_php_ext = false;  // Allow .php in URLs
+App::mode('legacy-cgi');   // or 'coroutine-legacy' for concurrent legacy
 
-// Catch-all for pretty permalinks
 $app->setFallback(function() {
     $g = G::instance();
     $g->server['PHP_SELF'] = '/index.php';
     $g->server['SCRIPT_NAME'] = '/index.php';
     $g->server['SCRIPT_FILENAME'] = App::$cwd . '/public/index.php';
-    App::includeFile(App::$cwd . '/public/index.php');
+    return App::include('/index.php');   // App::includeFile() is a deprecated alias
 });
 ```
 
-`App::includeFile()` runs PHP files in a separate process (CGI worker) for true global scope isolation.
+`App::include($publicPath)` runs PHP files rooted at `public/`. In `legacy-cgi`
+mode it dispatches to a CGI subprocess for true global-scope isolation; in
+coroutine modes it runs in-process. The file's return value flows through the
+universal return contract (`return 404;` → status, `return [...]` → JSON, a
+Generator → SSR stream).
 
 ## Key Classes
 
 | Class | Purpose |
 |-------|---------|
-| `ZealPHP\App` | Framework core: routing, server lifecycle, `render()`, `includeFile()` |
+| `ZealPHP\App` | Framework core: routing, server lifecycle, `render()`, `include()`, `mode()` |
 | `ZealPHP\G` | Per-request global state (`G::instance()`) |
 | `ZealPHP\HTTP\Request` | Request wrapper |
 | `ZealPHP\HTTP\Response` | Response wrapper: `stream()`, `sse()`, `redirect()`, `flush()` |
