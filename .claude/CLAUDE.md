@@ -121,8 +121,34 @@ Files in `api/` become REST endpoints:
 ```php
 $app->addMiddleware(new CorsMiddleware(['*']));
 $app->addMiddleware(new ETagMiddleware());
-// Last-added runs first (outermost)
+// First-registered runs first (outermost); ResponseMiddleware is innermost.
+// (Earlier docs said last-added runs outermost — that was backwards.)
 ```
+
+#### Per-route middleware
+Scope middleware to individual routes/groups, not just the global stack. Purely additive + BC — a route without `middleware:` is unchanged.
+```php
+// Named alias registry — factory runs ONCE at App::run(); the instance is
+// SHARED across every request, so middleware MUST be stateless (per-request
+// state goes in $g / RequestContext, never on the middleware object).
+App::middlewareAlias('auth', fn() => new AuthMiddleware());
+App::middlewareAlias('throttle', fn($n) => new RateLimitMiddleware((int)$n)); // 'throttle:120' → fn('120')
+
+// middleware: option on route()/nsRoute()/nsPathRoute()/patternRoute().
+// Accepts MiddlewareInterface instances and/or alias strings.
+$app->route('/admin/users', methods: ['GET'],
+    middleware: ['auth', 'request-id', new IpAccessMiddleware([...])],
+    handler: fn() => User::all());
+
+// Route groups — shared middleware wraps outside the route's own; groups nest.
+$app->group('/admin', ['auth', 'admin-only'], function ($g) {
+    $g->route('/users', fn() => User::all());
+});
+```
+- **Ordering:** global (first-registered = outermost) → `App::when` (path scopes) → group / route (first-listed = outermost) → api in-file `$middleware` → handler; response unwinds in reverse. A middleware that returns without calling the handler (403/redirect) short-circuits.
+- **`App::when($pathPrefixOrRegex, $middleware)`** — centralized **path-scoped** middleware; the one mechanism that also covers the **ZealAPI** layer (no separate "api middleware" — `api/**.php` files are just `/api/...` URLs). Prefix (segment-safe) or `#regex#`; `'/'` = everything; composes in registration order (first = outermost). Runs after path normalization + after OPTIONS (preflight never gated). An `api/**.php` file may also declare `$middleware = ['auth', ...]` inline (runs innermost). Both reuse the `App::middlewareAlias()` registry.
+- `App::describeRoutes()` returns `{global, aliases, when, routes}` for introspection (works before AND after `run()`). The live visualizer is a section of the `/middleware` page; PSR-15 pipeline classes live in `src/Middleware/Pipeline/`.
+- `ZealPHP\Middleware\RequestIdMiddleware($headerName = 'X-Request-Id', $trustInbound = true)` assigns/propagates a request id, echoes it on the response, and stores it in the per-request memo. Stateless, coroutine-safe.
 
 ### Responses
 ```php
