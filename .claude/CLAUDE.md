@@ -229,9 +229,10 @@ Must be called inside a coroutine context (onWorkerStart or request handler).
 ### Shared Memory
 ```php
 // Create BEFORE $app->run() (shared across all workers via fork)
+// Columns are an ASSOCIATIVE map: 'name' => [Store::TYPE_*, size]
 Store::make('cache', 1024, [
-    ['key',   Store::TYPE_STRING, 64],
-    ['value', Store::TYPE_STRING, 256],
+    'key'   => [Store::TYPE_STRING, 64],
+    'value' => [Store::TYPE_STRING, 256],
 ]);
 Store::set('cache', 'item1', ['key' => 'greeting', 'value' => 'hello']);
 $row = Store::get('cache', 'item1');
