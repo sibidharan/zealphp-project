@@ -342,17 +342,26 @@ php -m | grep zealphp          # verify it's loaded (NTS-only)
 When ext-zealphp is absent, `App::mode('coroutine-legacy')` refuses to boot
 (the superglobals-under-coroutines combo would race across requests).
 
-> **PHP 8.4 / 8.5 — preload hot-path classes (no longer a crash):** the
-> `require_once`'d inherited-class heap-corruption crash is **FIXED in
-> ext-zealphp 0.3.24+**, and per-request state resets (0.3.25+) close the
-> remaining legacy-app 500s — WordPress and `require_once`-bootstrap apps now
-> run end-to-end in `coroutine-legacy`. The one remaining gotcha is benign:
+> **PHP 8.4 / 8.5 — which legacy apps run *concurrently* in coroutine-legacy:**
+> the `require_once`'d inherited-class heap-corruption crash is **FIXED in
+> ext-zealphp 0.3.24+** and per-request state resets (0.3.25+) close the
+> remaining legacy 500s, so **Composer/autoloader apps run concurrently** in
+> coroutine-legacy — verified on a 12-app sweep (Adminer, FreshRSS, YOURLS,
+> Grav, phpBB, MyBB, Piwigo, Drupal). The one gotcha for these is benign:
 > **cold-concurrent-autoload** — a class first compiled while several coroutines
 > overlap can transiently raise "class not found" on the very first burst (a PHP
 > early-binding race, ASAN/Valgrind clean — not a memory bug). **Fix:** warm
 > hot-path classes at boot with `App::preloadClassmap()` /
 > `App::preloadClasses()` / `App::preloadDir()` (below). State isolation is
 > solid on 8.3, 8.4 and 8.5.
+>
+> **Classic unmodified WordPress is the exception — use `legacy-cgi`.** It's
+> pure `require_once` with no autoloader, so it can't be preloaded. It *works*
+> in coroutine-legacy only run **sequentially** (a correctness benchmark — public
+> site + login + comment writes, ASAN-clean); **true concurrent** WordPress still
+> crashes (a cold-boot `mysqlnd`/`libtasn1` teardown layer) and full wp-admin
+> still wants `legacy-cgi`. **For real unmodified WordPress, `legacy-cgi` (Mode 1)
+> is the recommended mode** — process-isolated, fully concurrent-safe.
 
 ### Preloading hot-path classes (coroutine-legacy)
 
