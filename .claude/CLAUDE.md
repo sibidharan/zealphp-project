@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
-This is a **ZealPHP application** — a PHP web app built on the ZealPHP framework (OpenSwoole-based async PHP).
+This is a **ZealPHP application** — a PHP web app built on the ZealPHP framework (OpenSwoole-based async PHP). Targets **ZealPHP v0.3.7+** (per-route middleware, dev hot-reload `--dev`, and per-route `backend:` are all available).
 
 ## Commands
 
@@ -12,19 +12,23 @@ This is a **ZealPHP application** — a PHP web app built on the ZealPHP framewo
 # Install dependencies
 composer install
 
-# Start the dev server on :8080
+# Start the dev server on :8080 (4 workers by default, capped to the
+# container's cgroup CPU quota; override with ZEALPHP_WORKERS=16 or -w)
 php app.php
 
 # Start on a specific port, daemonized
 php app.php start -p 9000 -d
 
-# Stop the server
+# Dev route hot-reload — watch route/*.php, rebuild on change, no restart
+php app.php --dev            # or: ZEALPHP_DEV=1 php app.php
+
+# Restart / stop / status / tail logs
+php app.php restart
 php app.php stop
-
-# Check if running
 php app.php status
+php app.php logs             # --access --debug --server --zlog to filter
 
-# Show all CLI options
+# Show all CLI options (-w workers, -H host, --pid-file, --task-workers, -d)
 php app.php --help
 ```
 
@@ -58,11 +62,14 @@ $app->patternRoute('/files/.*', function() { ... });
 Routes are matched in order: route files → explicit routes → API routes → implicit public/ file routes.
 
 ### Parameter Injection
-Handler arguments are injected by name:
+**Route handlers** (`$app->route()` etc.) inject by name:
 - `$request` → `ZealPHP\HTTP\Request`
 - `$response` → `ZealPHP\HTTP\Response`
+- `$app` → the router (`ResponseMiddleware`)
 - `{param}` names → matched URL segments
-- Any name with a default → PHP default value
+- any name with a default → its PHP default value
+
+**API handlers** (`api/*.php`) inject `$app` → the `ZealAPI` instance (for `$app->isAuthenticated()` etc.), plus `$request`, `$response`, and `$server` → `OpenSwoole\Http\Server`.
 
 ### Templates — three render methods
 ```php
@@ -96,12 +103,30 @@ $app->route('/users', fn() => (function() {
 })());
 ```
 
+### Template fragments (htmx)
+Mark a named region inside a template, then return either the full page or just that region — the htmx "template fragment" pattern:
+```php
+// template/users/page.php
+<?php App::fragment('list', function() use ($users) {
+    yield "<ul>";
+    foreach ($users as $u) yield "<li>{$u->name}</li>";
+    yield "</ul>";
+});
+
+// Full page vs. just the fragment (same template, different render):
+$app->route('/users',      fn() => App::render('users/page', ['users' => User::all()]));
+$app->route('/users/list', fn() => App::render('users/page', ['fragment' => 'list', 'users' => User::all()]));
+```
+No `fragment` arg → the whole template renders (every `App::fragment()` runs inline). A `fragment` arg extracts just that region. Missing fragment → HTTP 404; first match wins on repeated names.
+
 ### Return value conventions
 ```php
-return 404;                    // int → HTTP status code
+return 404;                    // int (100–599) → HTTP status; out-of-range → 500 + logged warning
 return ['id' => 42];           // array → JSON
 return '<h1>Hello</h1>';       // string → HTML body
 return (function() { yield..; })(); // Generator → SSR streaming
+return $response;              // ResponseInterface (PSR-7) → emitted as-is
+return null;                   // no override → 200, framework-computed body
 echo "Hello";                  // void+echo → output buffering
 ```
 
@@ -113,9 +138,34 @@ Files in `public/` are served automatically:
 - Static files (CSS, JS, images) served by OpenSwoole directly
 
 ### File-based API
-Files in `api/` become REST endpoints:
-- `api/users/get.php` → `GET /api/users` (must define `$get = function(...)`)
-- `api/users/post.php` → `POST /api/users`
+Files in `api/` become REST endpoints via two dispatch modes:
+
+**Filename match (primary — handles all HTTP methods):**
+- `api/device/list.php` defines `$list = function(...)` → all methods on `/api/device/list`
+- the variable name matches `basename($file, '.php')`
+
+**Per-method dispatch (Next.js style):**
+- `api/users.php` defines `$get` / `$post` / `$put` / `$delete` / `$patch` closures
+- each handles its method; undefined methods → 405 + `Allow` header; HEAD auto-derives from `$get`
+
+Filename match wins: if both `$list` and `$get`/`$post` exist in one file, the per-method handlers are unreachable (framework logs a warning).
+
+#### ZealAPI auth hooks
+API handlers read three auth checks via the injected `$app` (the `ZealAPI` instance):
+```php
+// api/users/create.php
+$post = function($app) {
+    if (!$app->requirePostAuth()) return;     // POST + authenticated, else sends 403
+    $user = $app->getUsername();
+    // …
+};
+```
+Wire the callbacks ONCE at boot in `app.php` — without them `isAuthenticated()`/`isAdmin()` → `false`, `getUsername()` → `null` (fail-closed):
+```php
+App::authChecker(fn() => !empty(G::instance()->session['user_id']));
+App::adminChecker(fn() => (G::instance()->session['role'] ?? null) === 'admin');
+App::usernameProvider(fn() => G::instance()->session['username'] ?? null);
+```
 
 ### Middleware
 ```php
@@ -213,6 +263,12 @@ $app->ws('/chat',
 ```
 WebSocket\Server extends HTTP\Server — all HTTP routes still work. PING/PONG frames are handled automatically; only TEXT and BINARY reach handlers.
 
+For cross-worker / cross-node broadcast, use **WSRouter rooms** (requires the Redis Store backend):
+```php
+WSRouter::init('server-id');                  // once, at boot
+WSRouter::room('chat')->push($payload);       // fans out to every member on every node
+```
+
 ### Timers
 ```php
 // Inside onWorkerStart or a request handler:
@@ -240,6 +296,19 @@ $row = Store::get('cache', 'item1');
 // Atomic counter (lock-free)
 $hits = new Counter('hits');
 $hits->increment();
+```
+
+Store and Counter are **backend-agnostic** (default = `Table`/`Atomic`, single-node in-memory). Flip to Redis/Tiered for cross-node state — set BEFORE `$app->run()`, every existing call works unchanged:
+```php
+Store::defaultBackend(Store::BACKEND_REDIS, 'redis://cache:6379/0');
+Store::defaultBackend(Store::BACKEND_TIERED, ['url' => 'redis://cache:6379/0', 'l1_ttl' => 5]);
+Counter::defaultBackend(Counter::BACKEND_REDIS);
+```
+
+For a read-through cache (compute-on-miss, stampede-gated, null-safe):
+```php
+Cache::init();                                              // before $app->run()
+$user = Cache::getOrCompute('user:42', fn() => User::find(42), ttl: 300);
 ```
 
 ## Lifecycle modes — `App::mode()` (v0.3.x)
@@ -273,12 +342,33 @@ php -m | grep zealphp          # verify it's loaded (NTS-only)
 When ext-zealphp is absent, `App::mode('coroutine-legacy')` refuses to boot
 (the superglobals-under-coroutines combo would race across requests).
 
-> **Known limitation (PHP 8.4 / 8.5):** coroutine-legacy *code* isolation
-> (silent function/class redeclare + `require_once` re-execution) has a
-> pre-existing heap-corruption race under heavy *concurrent class autoloading*
-> on PHP 8.4/8.5 (tracked). It is **not** a state leak — *state* isolation is
-> solid on 8.3, 8.4 and 8.5. For affected apps on 8.4/8.5, use
-> `App::mode('legacy-cgi')` or run on PHP 8.3.
+> **PHP 8.4 / 8.5 — preload hot-path classes (no longer a crash):** the
+> `require_once`'d inherited-class heap-corruption crash is **FIXED in
+> ext-zealphp 0.3.24+**, and per-request state resets (0.3.25+) close the
+> remaining legacy-app 500s — WordPress and `require_once`-bootstrap apps now
+> run end-to-end in `coroutine-legacy`. The one remaining gotcha is benign:
+> **cold-concurrent-autoload** — a class first compiled while several coroutines
+> overlap can transiently raise "class not found" on the very first burst (a PHP
+> early-binding race, ASAN/Valgrind clean — not a memory bug). **Fix:** warm
+> hot-path classes at boot with `App::preloadClassmap()` /
+> `App::preloadClasses()` / `App::preloadDir()` (below). State isolation is
+> solid on 8.3, 8.4 and 8.5.
+
+### Preloading hot-path classes (coroutine-legacy)
+
+Warm your app's classes at boot so a first concurrent burst can't race their
+compilation. Call **before `App::init()`** — these run in the master
+(single-coroutine), then COW-fork into every worker:
+
+```php
+App::preloadClassmap();                       // whole Composer classmap (needs `composer dump-autoload --optimize`)
+App::preloadDir(__DIR__ . '/src');            // a PSR-4 source dir
+App::preloadClasses(App\Home::class, App\Auth::class);  // specific hot controllers/services
+```
+
+Only needed in `coroutine-legacy` (the concurrent-compile mode). A pure
+`require_once` app with no autoloader (classic unmodified WordPress) can't be
+preloaded this way — run it in `legacy-cgi` (process-isolated, no race).
 
 ### Legacy app catch-all (pretty permalinks)
 
@@ -300,16 +390,42 @@ coroutine modes it runs in-process. The file's return value flows through the
 universal return contract (`return 404;` → status, `return [...]` → JSON, a
 Generator → SSR stream).
 
+### CGI dispatch modes — `App::cgiMode()`
+
+When `App::include()` dispatches to a subprocess, `App::cgiMode()` (set before
+`App::run()`) picks the strategy:
+- **`'pool'` (default)** — warm pre-spawned worker pool, interpreter resident (~1–3 ms/req).
+- **`'proc'`** — fresh `proc_open` subprocess per request (~30–50 ms cold start).
+- **`'fork'`** — Apache-prefork: fresh child at true global scope (~1 ms; EXPERIMENTAL, needs `pcntl`+`posix`). Unmodified-WordPress correctness (no `Cannot redeclare class`) without the `proc` cost.
+- **`'fcgi'`** — forward to an external FastCGI upstream (php-fpm, RoadRunner) via `App::fcgiAddress()`.
+
+`App::mode('legacy-cgi')` defaults to `cgiMode('pool')` with `cgiPoolMaxRequests = 1` (a fresh subprocess per request).
+
+### Per-route CGI backend — `backend:`
+
+A single route can override the app-wide CGI mode for the file its handler `App::include()`s:
+```php
+App::cgiBackendAlias('wp-fork', 'fork');                          // register an alias once at boot
+$app->route('/wordpress', backend: 'wp-fork', handler: fn() => App::include('/index.php'));
+$app->route('/legacy',    backend: ['mode' => 'fcgi', 'address' => 'unix:/run/php-fpm.sock'],
+    handler: fn() => App::include('/legacy/index.php'));
+```
+Accepted by all four registrars and `$app->group()`, as the `backend:` named arg or the `['backend' => …]` option key. **Boundary:** `backend:` is the CGI-isolation family only (`pool`/`proc`/`fork`/`fcgi`) — the process-wide lifecycle modes (`coroutine`/`coroutine-legacy`/`legacy-cgi`/`mixed`) are frozen at boot and **cannot** vary per route (passing one throws). To mix lifecycle modes, run separate processes per port behind a proxy.
+
 ## Key Classes
 
 | Class | Purpose |
 |-------|---------|
 | `ZealPHP\App` | Framework core: routing, server lifecycle, `render()`, `include()`, `mode()` |
+| `ZealPHP\App::mode(string)` | Lifecycle preset (set before `init()`): `'coroutine'`/`'mixed'`/`'legacy-cgi'`/`'coroutine-legacy'` |
+| `ZealPHP\App::parallel()` / `parallelLimit()` | Fork-join concurrency: run tasks in parallel (or capped), wait for all |
+| `ZealPHP\App::onSignal()` / `addProcess()` | Signal handlers + sidecar/background-worker processes (register before `run()`) |
+| `ZealPHP\HTTP` | Outbound HTTP: `HTTP::get/post/put/delete()` → typed `HTTPResponse`; `HTTP::all()` fans out concurrently |
 | `ZealPHP\G` | Per-request global state (`G::instance()`) |
 | `ZealPHP\HTTP\Request` | Request wrapper |
 | `ZealPHP\HTTP\Response` | Response wrapper: `stream()`, `sse()`, `redirect()`, `flush()` |
-| `ZealPHP\Store` | Cross-worker shared memory (OpenSwoole\Table) |
-| `ZealPHP\Counter` | Lock-free atomic counter |
+| `ZealPHP\Store` | Cross-worker shared memory (Table default; flip to Redis/Tiered via `Store::defaultBackend()`) |
+| `ZealPHP\Counter` | Lock-free atomic counter (Atomic default; flip to Redis via `Counter::defaultBackend()`) |
 
 ## Coding Standards
 
@@ -325,6 +441,7 @@ Generator → SSR stream).
 | No inline `style=` or `<style>` in templates | All CSS goes in `public/css/`. Use CSS classes. |
 | No function definitions in templates | Extract helpers to `src/` classes (PSR-4 autoloaded). |
 | No function definitions in API files | API files define one closure (`$get`, `$post`, etc.). Business logic goes in `src/` service classes. |
+| No top-level `function` in `route/*.php` | Breaks dev hot-reload (`--dev`) — re-including the file fatals on redeclaration in coroutine mode. Extract helpers to `src/` classes. |
 | `function_exists()` = wrong place | The function belongs in a class, autoloaded via Composer. |
 
 ### Architecture Rules
