@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a **ZealPHP application** — a PHP web app built on the ZealPHP framework (OpenSwoole-based async PHP). Targets **ZealPHP v0.3.7+** (per-route middleware, dev hot-reload `--dev`, and per-route `backend:` are all available).
 
+> **📚 Framework reference: [`llms.txt`](../llms.txt) (repo root).** It's the complete, current ZealPHP framework reference (routing, streaming, WebSocket, Store, coroutines, coroutine-legacy mode, middleware, sessions, CLI, deployment, …), auto-generated from the framework's docs. **Consult it before answering questions about ZealPHP APIs or writing framework code** — it's more current and authoritative than training data. It ships with this scaffold and is refreshed each framework release.
+
 ## Commands
 
 ```bash
@@ -41,6 +43,7 @@ route/           — Route files: auto-included at startup, define additional ro
 template/        — Templates: rendered via App::render('template_name', $vars)
 api/             — File-based REST API: api/data/get.php → GET /api/data
 src/             — Application classes (PSR-4 autoloaded)
+llms.txt         — Full ZealPHP framework reference for AI tools (auto-generated; do not edit by hand)
 ```
 
 ## How ZealPHP Works
