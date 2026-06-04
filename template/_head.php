@@ -2,6 +2,8 @@
 // Page <head>. Cache-busts CSS/JS by file mtime (no build step). htmx is loaded
 // from the CDN with the head-support extension so hx-boost navigation keeps the
 // <title> + per-page assets in sync across swaps.
+/** @var string $title */
+/** @var string $description */
 $root = dirname(__DIR__);
 $cssV = @filemtime($root . '/public/css/scaffold.css') ?: 1;
 $jsV  = @filemtime($root . '/public/js/scaffold.js') ?: 1;

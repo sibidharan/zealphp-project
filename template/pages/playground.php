@@ -109,7 +109,7 @@ App::render('components/_demo', [
 $app->route('/playground/toast', methods: ['POST'],
   handler: function ($res) {
     $res->htmx()->trigger(
-        '{"toast":"⚡ Triggered from the server!"}'
+        '{"toast":"Triggered from the server!"}'
     );
     return "<strong>Sent HX-Trigger.</strong>
             <br><small>the toast came from PHP, "

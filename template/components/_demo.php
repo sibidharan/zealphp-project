@@ -5,6 +5,10 @@
 //   $hint   string  — small monospace hint (raw HTML, optional)
 //   $code   string  — the handler source shown on the left (escaped)
 //   $live   string  — the live demo markup shown on the right (raw HTML — trusted)
+/** @var string $title */
+/** @var string $hint */
+/** @var string $code */
+/** @var string $live */
 ?>
 <div class="demo">
   <div class="demo-head">

@@ -1,5 +1,6 @@
 <?php
 // Top navigation. $active = current page key ('home' | 'playground').
+/** @var string $active */
 $a = $active ?? '';
 ?>
 <nav class="topnav">

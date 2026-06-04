@@ -37,7 +37,7 @@ $app->route('/playground/counter', methods: ['POST'], handler: function () use (
 
 // 4 ─ HtmxResponse — server-driven UI ---------------------------------------
 $app->route('/playground/toast', methods: ['POST'], handler: function ($res) {
-    $res->htmx()->trigger('{"toast":"⚡ Triggered from the server!"}');
+    $res->htmx()->trigger('{"toast":"Triggered from the server!"}');
     return "<strong>Sent HX-Trigger.</strong><br><small>the toast came from PHP, not JS</small>";
 });
 

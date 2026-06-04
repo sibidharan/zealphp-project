@@ -34,7 +34,7 @@
   function showToast(msg) {
     var t = document.getElementById('toast');
     if (!t) return;
-    t.textContent = msg || '⚡';
+    t.textContent = '⚡ ' + (msg || 'Triggered');
     t.classList.add('show');
     clearTimeout(t.__timer);
     t.__timer = setTimeout(function () { t.classList.remove('show'); }, 2600);
