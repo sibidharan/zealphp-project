@@ -66,13 +66,15 @@ Routes are matched in order: route files → explicit routes → API routes → 
 
 ### Parameter Injection
 **Route handlers** (`$app->route()` etc.) inject by name:
-- `$request` → `ZealPHP\HTTP\Request`
-- `$response` → `ZealPHP\HTTP\Response`
+- `$request` (or `$req`) → `ZealPHP\HTTP\Request`
+- `$response` (or `$res`) → `ZealPHP\HTTP\Response`
 - `$app` → the router (`ResponseMiddleware`)
 - `{param}` names → matched URL segments
 - any name with a default → its PHP default value
 
-**API handlers** (`api/*.php`) inject `$app` → the `ZealAPI` instance (for `$app->isAuthenticated()` etc.), plus `$request`, `$response`, and `$server` → `OpenSwoole\Http\Server`.
+`$req` / `$res` are accepted as short aliases for `$request` / `$response` — they inject the exact same wrappers. An explicit `{req}` / `{res}` URL segment still wins (a matched path parameter binds by name first). ws/task handlers are positional and unaffected.
+
+**API handlers** (`api/*.php`) inject `$app` → the `ZealAPI` instance (for `$app->isAuthenticated()` etc.), plus `$request` (or `$req`), `$response` (or `$res`), and `$server` → `OpenSwoole\Http\Server`.
 
 ### Templates — three render methods
 ```php
