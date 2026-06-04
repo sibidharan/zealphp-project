@@ -271,6 +271,7 @@ For cross-worker / cross-node broadcast, use **WSRouter rooms** (requires the Re
 WSRouter::init('server-id');                  // once, at boot
 WSRouter::room('chat')->push($payload);       // fans out to every member on every node
 ```
+Today a room push reaches every worker on every node (one `ws:room:*` subscriber per worker). A cross-node fan-out reduction is in progress — a per-room **server-set** (`WSRouter::roomServers($room)`, the `server_id`s holding ≥1 member, maintained race-free via the new atomic `Store::eval($lua, $keys, $args)` on the Redis backend) is the landed groundwork; targeted routing + a per-node aggregator are opt-in increments (additive only — routing is unchanged). `Store::eval()` is the general public primitive (raw keys; values as `KEYS`/`ARGV`, never interpolated). Design: `docs/architecture/2026-06-03-cross-node-fanout.md` in the framework repo.
 
 ### Timers
 ```php
