@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d73dd28cc14ad315041d2a14212beccd",
+    "content-hash": "0c81ae06af296294af19e07c510ceb10",
     "packages": [
         {
             "name": "dflydev/dot-access-data",
@@ -964,16 +964,16 @@
         },
         {
             "name": "sibidharan/zealphp",
-            "version": "v0.4.0",
+            "version": "v0.4.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sibidharan/zealphp.git",
-                "reference": "597df233acf8d082fe8c6bf9e123efea04d81665"
+                "reference": "eba0b20f83e665ac3d2e77bc924ad8b986462fe6"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/597df233acf8d082fe8c6bf9e123efea04d81665",
-                "reference": "597df233acf8d082fe8c6bf9e123efea04d81665",
+                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/eba0b20f83e665ac3d2e77bc924ad8b986462fe6",
+                "reference": "eba0b20f83e665ac3d2e77bc924ad8b986462fe6",
                 "shasum": ""
             },
             "require": {
@@ -1048,7 +1048,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-06-04T14:39:27+00:00"
+            "time": "2026-06-04T17:33:54+00:00"
         },
         {
             "name": "symfony/deprecation-contracts",
