@@ -46,14 +46,15 @@ $app->addMiddleware(new RangeMiddleware());
 $app->addMiddleware(new SessionStartMiddleware());
 
 // ─── Routes ─────────────────────────────────────────────────────────
-// Add more in the `route/` directory (auto-loaded at startup) or directly here.
+// The welcome page (public/index.php) and the htmx playground
+// (public/playground.php + route/playground.php) ship as a starting point —
+// open them to see how it all fits together, then replace with your own.
+//
+// You can register routes here, or drop files in `route/` (auto-loaded at
+// startup). Handlers inject by name: `$req`/`$res` (or `$request`/`$response`),
+// `$app`, and any `{param}` from the path.
 
-$app->route('/hello/{name}', function ($name) {
-    App::render('/hello', ['name' => $name]);
-});
-
-$app->route('/hello', function () {
-    App::render('check');
-});
+$app->route('/hello/{name}', fn ($name, $req) =>
+    ['hello' => $name, 'from' => 'ZealPHP', 'htmx' => $req->isHtmx()]);
 
 $app->run();

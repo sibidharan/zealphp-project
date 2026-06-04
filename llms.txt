@@ -4303,7 +4303,7 @@ App::mode(App::MODE_MIXED);              // Symfony / Laravel — real $_SESSION
 
 Pick the mode that matches your application’s profile. You can call `App::mode()` (or set the individual knobs) early in `app.php` before calling `App::init()`.
 
-### Stage 8 — true-global-scope request include (`App::globalScopeInclude()`)
+## Runtime Architecture — Stage 8 — true-global-scope request include (`App::globalScopeInclude()`)
 
 `App::globalScopeInclude(?bool $on = null): bool` is the capstone of the coroutine-legacy isolation stack. It only matters for legacy `require_once`-bootstrap apps (WordPress wp-admin in particular) running **in-process** under coroutine-legacy.
 
