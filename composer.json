@@ -16,7 +16,7 @@
         }
     ],
     "require": {
-        "sibidharan/zealphp": "^0.4.1"
+        "sibidharan/zealphp": "^0.4.2"
     },
     "repositories": {
     }
