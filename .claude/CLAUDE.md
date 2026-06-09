@@ -324,14 +324,14 @@ Pick a lifecycle preset with `App::mode()` **before `App::init()`**:
 | Mode | Use for |
 |------|---------|
 | `App::mode('coroutine')` | **Default for new apps.** Per-coroutine `RequestContext` isolation + HOOK_ALL non-blocking I/O. Recommended. |
-| `App::mode('coroutine-legacy')` | Traditional request-style PHP (the PHP-FPM "fresh state per request" model) run **concurrently** under coroutines. Every request-state primitive — the 7 superglobals, `$GLOBALS`/`global $x`, class & function `static`, `define()`, `ini_set`, `putenv` — is isolated per coroutine. **Requires ext-zealphp.** |
+| `App::mode('coroutine-legacy')` | Traditional request-style PHP (the PHP-FPM "fresh state per request" model) run **concurrently** under coroutines. Every request-state primitive — the 7 superglobals, `$GLOBALS`/`global $x`, class & function `static`, `define()`, `ini_set`, `putenv`, and (ext-zealphp 0.3.35+) the **working directory** (`chdir()` is per-coroutine, like PHP-FPM's per-process CWD) — is isolated per coroutine. **Requires ext-zealphp.** |
 | `App::mode('legacy-cgi')` | Unmodified WordPress / Drupal — one CGI subprocess per request (mod_php-style global-scope isolation). |
 | `App::mode('mixed')` | Symfony / Laravel — real `$_SESSION`, no per-include CGI fork cost, sequential per worker. |
 
 `App::isolation()` exposes the same coupling directly; the standalone setters
 (`App::coroutineGlobalsIsolation()`, `App::coroutineStaticsIsolation()`,
-`App::silentRedeclare()`, `App::includeIsolation()`, `App::defineIsolation()`,
-`App::keepGlobals()`) give per-knob control.
+`App::coroutineCwdIsolation()`, `App::silentRedeclare()`, `App::includeIsolation()`,
+`App::defineIsolation()`, `App::keepGlobals()`) give per-knob control.
 
 ### ext-zealphp — the per-coroutine isolation engine
 
