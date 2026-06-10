@@ -1,5 +1,5 @@
 {
-    "name": "sibidharan/zealphp-project",
+    "name": "zealphp/project",
     "type": "project",
     "description": "A simple project to demonstrate the usage of ZealPHP",
     "license": "MIT",
@@ -16,8 +16,7 @@
         }
     ],
     "require": {
-        "sibidharan/zealphp": "^0.4.5"
+        "zealphp/zealphp": "^0.4.6"
     },
-    "repositories": {
-    }
+    "repositories": {}
 }

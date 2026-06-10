@@ -342,7 +342,7 @@ Pick a lifecycle preset with `App::mode()` **before `App::init()`**:
 per-coroutine state across each yield. Install:
 
 ```bash
-pie install sibidharan/ext-zealphp
+pie install zealphp/ext
 php -m | grep zealphp          # verify it's loaded (NTS-only)
 ```
 
