@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d4df92b576d9445308060b68c519645a",
+    "content-hash": "27b47a3081fad55ee9e9e01e9ec76b53",
     "packages": [
         {
             "name": "dflydev/dot-access-data",
@@ -963,94 +963,6 @@
             "time": "2021-10-29T13:26:27+00:00"
         },
         {
-            "name": "sibidharan/zealphp",
-            "version": "v0.4.5",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/sibidharan/zealphp.git",
-                "reference": "7b1d6cfc2ac5e89a114f1b40e63febb345a22912"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/7b1d6cfc2ac5e89a114f1b40e63febb345a22912",
-                "reference": "7b1d6cfc2ac5e89a114f1b40e63febb345a22912",
-                "shasum": ""
-            },
-            "require": {
-                "ext-openswoole": ">=22.0",
-                "league/commonmark": "^2.8",
-                "openswoole/core": "^22.1.5",
-                "openswoole/ide-helper": "^22.0.1",
-                "php": "^8.3",
-                "psr/http-client": "^1.0",
-                "psr/http-factory": "^1.1",
-                "psr/http-message": "^1.1",
-                "psr/log": "^3.0",
-                "psr/simple-cache": "^3.0"
-            },
-            "require-dev": {
-                "infection/infection": "^0.29 || ^0.33",
-                "phpstan/phpstan": "^2.1",
-                "phpunit/phpunit": "^11.0",
-                "predis/predis": "^2.2"
-            },
-            "suggest": {
-                "ext-uopz": "Legacy fallback if ext-zealphp is not available",
-                "ext-zealphp": "Recommended: per-request function overrides + per-coroutine superglobals (pie install sibidharan/ext-zealphp)"
-            },
-            "type": "library",
-            "autoload": {
-                "files": [
-                    "src/utils.php",
-                    "src/Session/utils.php",
-                    "src/apache_shims.php"
-                ],
-                "psr-4": {
-                    "ZealPHP\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Sibidharan",
-                    "email": "sibi@selfmade.ninja"
-                }
-            ],
-            "description": "Coroutine-native PHP framework on OpenSwoole — async HTTP, WebSocket, streaming, and real-time applications.",
-            "homepage": "https://php.zeal.ninja",
-            "keywords": [
-                "async",
-                "coroutine",
-                "framework",
-                "http",
-                "middleware",
-                "openswoole",
-                "php",
-                "php-framework",
-                "psr-15",
-                "real-time",
-                "sse",
-                "streaming",
-                "swoole",
-                "websocket",
-                "zealphp"
-            ],
-            "support": {
-                "issues": "https://github.com/sibidharan/zealphp/issues",
-                "source": "https://github.com/sibidharan/zealphp"
-            },
-            "funding": [
-                {
-                    "url": "https://github.com/sibidharan",
-                    "type": "github"
-                }
-            ],
-            "time": "2026-06-09T21:58:44+00:00"
-        },
-        {
             "name": "symfony/deprecation-contracts",
             "version": "v3.7.0",
             "source": {
@@ -1204,6 +1116,97 @@
                 }
             ],
             "time": "2026-04-10T16:19:22+00:00"
+        },
+        {
+            "name": "zealphp/zealphp",
+            "version": "v0.4.6",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/sibidharan/zealphp.git",
+                "reference": "d064c12fe7414ae37cc5929530ad0b5c85d8afc5"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/d064c12fe7414ae37cc5929530ad0b5c85d8afc5",
+                "reference": "d064c12fe7414ae37cc5929530ad0b5c85d8afc5",
+                "shasum": ""
+            },
+            "require": {
+                "ext-openswoole": ">=22.0",
+                "league/commonmark": "^2.8",
+                "openswoole/core": "^22.1.5",
+                "openswoole/ide-helper": "^22.0.1",
+                "php": "^8.3",
+                "psr/http-client": "^1.0",
+                "psr/http-factory": "^1.1",
+                "psr/http-message": "^1.1",
+                "psr/log": "^3.0",
+                "psr/simple-cache": "^3.0"
+            },
+            "replace": {
+                "sibidharan/zealphp": "self.version"
+            },
+            "require-dev": {
+                "infection/infection": "^0.29 || ^0.33",
+                "phpstan/phpstan": "^2.1",
+                "phpunit/phpunit": "^11.0",
+                "predis/predis": "^2.2"
+            },
+            "suggest": {
+                "ext-uopz": "Legacy fallback if ext-zealphp is not available",
+                "ext-zealphp": "Recommended: per-request function overrides + per-coroutine superglobals (pie install zealphp/ext)"
+            },
+            "type": "library",
+            "autoload": {
+                "files": [
+                    "src/utils.php",
+                    "src/Session/utils.php",
+                    "src/apache_shims.php"
+                ],
+                "psr-4": {
+                    "ZealPHP\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Sibidharan",
+                    "email": "sibi@selfmade.ninja"
+                }
+            ],
+            "description": "Coroutine-native PHP framework on OpenSwoole — async HTTP, WebSocket, streaming, and real-time applications.",
+            "homepage": "https://php.zeal.ninja",
+            "keywords": [
+                "async",
+                "coroutine",
+                "framework",
+                "http",
+                "middleware",
+                "openswoole",
+                "php",
+                "php-framework",
+                "psr-15",
+                "real-time",
+                "sse",
+                "streaming",
+                "swoole",
+                "websocket",
+                "zealphp"
+            ],
+            "support": {
+                "issues": "https://github.com/sibidharan/zealphp/issues",
+                "source": "https://github.com/sibidharan/zealphp"
+            },
+            "funding": [
+                {
+                    "url": "https://github.com/sibidharan",
+                    "type": "github"
+                }
+            ],
+            "time": "2026-06-10T01:01:05+00:00"
         }
     ],
     "packages-dev": [],
