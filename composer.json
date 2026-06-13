@@ -16,7 +16,7 @@
         }
     ],
     "require": {
-        "zealphp/zealphp": "^0.4.8"
+        "zealphp/zealphp": "^0.4.9"
     },
     "repositories": {}
 }
