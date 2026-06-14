@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "9dc9e22c53995bcf48b822fb2ca2f7a4",
+    "content-hash": "bf20c88d60daa6e8801a8133ba90b4ee",
     "packages": [
         {
             "name": "dflydev/dot-access-data",
@@ -1119,16 +1119,16 @@
         },
         {
             "name": "zealphp/zealphp",
-            "version": "v0.4.9",
+            "version": "v0.4.10",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sibidharan/zealphp.git",
-                "reference": "fecab71229ca2cbcb1eb86d3570a366c5d8fafb3"
+                "reference": "8e8d13d96775c02dfd3dd1000ca1c92e5ead05de"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/fecab71229ca2cbcb1eb86d3570a366c5d8fafb3",
-                "reference": "fecab71229ca2cbcb1eb86d3570a366c5d8fafb3",
+                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/8e8d13d96775c02dfd3dd1000ca1c92e5ead05de",
+                "reference": "8e8d13d96775c02dfd3dd1000ca1c92e5ead05de",
                 "shasum": ""
             },
             "require": {
@@ -1206,7 +1206,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-06-13T08:50:28+00:00"
+            "time": "2026-06-14T12:49:19+00:00"
         }
     ],
     "packages-dev": [],
