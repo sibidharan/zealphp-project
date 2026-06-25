@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "bef29dd5547818bc1f9221915d495e77",
+    "content-hash": "49ffa43a0f81b46cb8ef0565b8b339b5",
     "packages": [
         {
             "name": "dflydev/dot-access-data",
@@ -1119,16 +1119,16 @@
         },
         {
             "name": "zealphp/zealphp",
-            "version": "v0.4.11",
+            "version": "v0.4.12",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sibidharan/zealphp.git",
-                "reference": "1c12cd697a2124aa0a97f4282d24f1d4a6efb122"
+                "reference": "2361ad5084b1046b77e54aeb00a517fd67b875bf"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/1c12cd697a2124aa0a97f4282d24f1d4a6efb122",
-                "reference": "1c12cd697a2124aa0a97f4282d24f1d4a6efb122",
+                "url": "https://api.github.com/repos/sibidharan/zealphp/zipball/2361ad5084b1046b77e54aeb00a517fd67b875bf",
+                "reference": "2361ad5084b1046b77e54aeb00a517fd67b875bf",
                 "shasum": ""
             },
             "require": {
@@ -1150,7 +1150,7 @@
                 "infection/infection": "^0.29 || ^0.33",
                 "phpstan/phpstan": "^2.1",
                 "phpunit/phpunit": "^11.0",
-                "predis/predis": "^2.2"
+                "predis/predis": "^2.2 || ^3.0"
             },
             "suggest": {
                 "ext-uopz": "Legacy fallback if ext-zealphp is not available",
@@ -1206,7 +1206,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-06-14T13:48:13+00:00"
+            "time": "2026-06-25T01:28:55+00:00"
         }
     ],
     "packages-dev": [],
