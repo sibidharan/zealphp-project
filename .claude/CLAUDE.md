@@ -72,21 +72,25 @@ Routes are matched in order: route files → explicit routes → API routes → 
 - `{param}` names → matched URL segments
 - any name with a default → its PHP default value
 
-`$req` / `$res` are accepted as short aliases for `$request` / `$response` — they inject the exact same wrappers. An explicit `{req}` / `{res}` URL segment still wins (a matched path parameter binds by name first). ws/task handlers are positional and unaffected.
+`$req` / `$res` are accepted as short aliases for `$request` / `$response` — they inject the exact same wrappers. Reserved names (`request`, `req`, `response`, `res`, `app`) always bind the injected object, even when a URL segment has the same name, so a handler's `$req` is never an attacker-controlled path string; name the segment something else to read it. ws/task handlers are positional and unaffected.
 
 **API handlers** (`api/*.php`) inject `$app` → the `ZealAPI` instance (for `$app->isAuthenticated()` etc.), plus `$request` (or `$req`), `$response` (or `$res`), and `$server` → `OpenSwoole\Http\Server`.
 
-### Templates — three render methods
+### Rendering — two verbs
 ```php
-// Direct output (void — echoes to response)
+// render(): a page or response (public/*.php, routes). Echoes a string result.
 App::render('page_name', ['title' => 'Hello']);
+App::render('page_name', $args, stream: true);      // \Generator for SSR
+App::render('users/page', $args, fragment: 'list'); // one App::fragment() region
+App::render('users/page', $args, htmx: true);       // fragment for htmx requests, full page otherwise
 
-// Capture as string (for email, cache, or yield)
-$html = App::renderToString('page_name', ['title' => 'Hello']);
-
-// Streaming Generator (for SSR — yields chunks progressively)
-yield from App::renderStream('page_name', ['title' => 'Hello']);
+// component(): markup inside a page. Returns SafeHtml, never echoes.
+<?= App::component('card', ['title' => 'Hi']) ?>     // template/components/card.php (or _card.php)
+$html = (string) App::component('/emails/welcome', ['user' => $u]); // leading / = any template
 ```
+Pages call `render()`; anything inside a page calls `component()`. The old `renderToString()` (→ `App::component('/path', $args)`), `renderStream()` (→ `render(…, stream: true)`) and `renderHtmx()` (→ `render(…, htmx: true)`) are deprecated aliases until 1.0 — don't use them in new code.
+
+Escape output with `ZealPHP\e()` (HTML text and quoted attributes); `Escape::url()`, `Escape::safeUrl()` (refuses `javascript:`/`data:`), `Escape::js()` (JSON safe in `<script>`) and `Escape::raw()` (trusted markup) cover the rest.
 
 ### Streaming templates
 Templates can `yield` — return a Closure with named params, framework injects by name:
@@ -102,9 +106,9 @@ Templates can `yield` — return a Closure with named params, framework injects 
 
 // Route handler — compose streams:
 $app->route('/users', fn() => (function() {
-    yield from App::renderStream('shell-open', ['title' => 'Users']);
-    yield from App::renderStream('users/stream', ['users' => User::all()]);
-    yield from App::renderStream('shell-close');
+    yield from App::render('shell-open', ['title' => 'Users'], stream: true);
+    yield from App::render('users/stream', ['users' => User::all()], stream: true);
+    yield from App::render('shell-close', stream: true);
 })());
 ```
 
@@ -120,9 +124,38 @@ Mark a named region inside a template, then return either the full page or just 
 
 // Full page vs. just the fragment (same template, different render):
 $app->route('/users',      fn() => App::render('users/page', ['users' => User::all()]));
-$app->route('/users/list', fn() => App::render('users/page', ['fragment' => 'list', 'users' => User::all()]));
+$app->route('/users/list', fn() => App::render('users/page', ['users' => User::all()], fragment: 'list'));
 ```
-No `fragment` arg → the whole template renders (every `App::fragment()` runs inline). A `fragment` arg extracts just that region. Missing fragment → HTTP 404; first match wins on repeated names.
+No `fragment:` → the whole template renders (every `App::fragment()` runs inline). `fragment:` extracts just that region. Missing fragment → HTTP 404; first match wins on repeated names. `htmx: true` picks the fragment from the request's `HX-Target` for htmx requests and renders the full page otherwise.
+
+### Components — stateless and reactive
+One call, two kinds. A **stateless** component is a template (`template/components/card.php`) rendered with `App::component('card', $props)`. A **reactive** component is a class whose state lives in the page as an HMAC-signed, session-bound snapshot — workers keep nothing between requests:
+
+```php
+// src/Components/Counter.php
+final class Counter extends \ZealPHP\Component\Component
+{
+    public int $count = 0;                       // state: scalars, arrays of scalars, backed enums
+
+    #[\ZealPHP\Component\Action]
+    public function add(int $by = 1): void { $this->count += $by; }
+
+    public function render(): mixed { return $this->view('components/counter'); }
+}
+
+// template/components/counter.php — public props are variables, $c is the component
+<span><?= \ZealPHP\e($count) ?></span>
+<button <?= $c->action('add', ['by' => 5]) ?>>+5</button>
+
+// route/components.php (boot) and a page
+App::components([Counter::class]);
+<?= App::component(Counter::class) ?>
+```
+- `#[Model(rules: 'required|email', live: true)]` binds a property to an input (`<input <?= $c->model('email') ?>>`), with validation errors rendered beside the field.
+- Requests go to `POST /_zeal/c/{name}/{action}`; htmx is first-class (`HtmxBinder`, htmx 2 and 4) but not required — without JavaScript a component is a real form.
+- **Needs `ZEALPHP_APP_KEY`** (`php app.php key:generate`); with components registered and no key, boot refuses outside dev mode.
+- **Live updates:** list dependencies in `topics()` and call `Component::invalidate('topic')` after a write; add `<?= App::componentPushRoot() ?>` before `</body>`. Every open page showing the component re-renders it (WebSockets by default, SSE with `ZEALPHP_COMPONENT_PUSH=sse`), across workers and nodes. Pushes carry ids only; each page refreshes through the normal endpoint with its own session.
+- Never store component instances in statics or the Store; snapshots are replayable by their own session, so keep authoritative state (votes, balances) in your database.
 
 ### Return value conventions
 ```php
@@ -219,8 +252,8 @@ Three patterns for streaming responses:
 $app->route('/page', function() {
     return (function() {
         yield '<html><body>';
-        yield App::renderToString('header');
-        yield App::renderToString('content');  // each yield sent immediately
+        yield (string) App::component('/header');
+        yield (string) App::component('/content');  // each yield sent immediately
         yield '</body></html>';
     })();
 });
@@ -244,7 +277,7 @@ $app->route('/events', function($response) {
 });
 ```
 
-`App::renderToString($template, $args)` captures a template render into a string for yielding inside streaming contexts.
+`App::component('/template', $args)` renders any template to markup (cast to string) for yielding inside streaming contexts.
 
 ### WebSocket
 ```php
