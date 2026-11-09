@@ -2,6 +2,7 @@
 
 use ZealPHP\App;
 
-$test = function() {
-    echo "<h1> Welcome to ZealPHP </h1>";
+// An API returns data; an array is sent as JSON.
+$test = function () {
+    return ['message' => 'Welcome to ZealPHP'];
 };

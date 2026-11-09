@@ -1,11 +1,11 @@
 <?php
 // Playground demo endpoints — the live half of every panel on /playground.
-// Thin handlers that return HTML fragments (htmx swaps them in). $req / $res
-// are short aliases for $request / $response (ZealPHP v0.4.0+).
-//
-// Route files auto-load at startup with $app in scope. Keep them thin — real
-// apps push logic into src/ service classes.
+// Route files are wiring: read the input, do the work (in a src/ class in a
+// real app), return data, a status, or a component. The HTML fragments htmx
+// swaps in are components (template/playground/components/), never strings
+// built here. $req / $res are short aliases for $request / $response.
 
+use ZealPHP\App;
 use ZealPHP\Counter;
 
 // One atomic integer shared by every worker — constructed in the master before
@@ -15,8 +15,10 @@ $hits = new Counter(0);
 // 1 ─ Routing, params & $req ------------------------------------------------
 $app->route('/playground/greet', function ($req) {
     $name = trim((string) ($req->get['name'] ?? '')) ?: 'world';
-    $name = htmlspecialchars($name, ENT_QUOTES);
-    return "<strong>Hello, {$name}!</strong><br><small>served by worker " . getmypid() . "</small>";
+    return App::component('/playground/components/result', [
+        'strong' => "Hello, {$name}!",
+        'note'   => 'served by worker ' . getmypid(),
+    ]);
 });
 
 // 2 ─ The universal return contract -----------------------------------------
@@ -31,14 +33,20 @@ $app->route('/playground/stream', fn () => (function () {                       
 
 // 3 ─ Store & Counter — cross-worker state ----------------------------------
 $app->route('/playground/counter', methods: ['POST'], handler: function () use ($hits) {
-    $n = $hits->increment();
-    return "<strong>{$n}</strong> total hits<br><small>this one served by worker " . getmypid() . "</small>";
+    return App::component('/playground/components/result', [
+        'strong' => (string) $hits->increment(),
+        'text'   => ' total hits',
+        'note'   => 'this one served by worker ' . getmypid(),
+    ]);
 });
 
 // 4 ─ HtmxResponse — server-driven UI ---------------------------------------
 $app->route('/playground/toast', methods: ['POST'], handler: function ($res) {
     $res->htmx()->trigger('{"toast":"Triggered from the server!"}');
-    return "<strong>Sent HX-Trigger.</strong><br><small>the toast came from PHP, not JS</small>";
+    return App::component('/playground/components/result', [
+        'strong' => 'Sent HX-Trigger.',
+        'note'   => 'the toast came from PHP, not JS',
+    ]);
 });
 
 // 5 ─ Server-Sent Events — $res->sse() --------------------------------------

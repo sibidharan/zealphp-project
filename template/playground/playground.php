@@ -21,18 +21,20 @@ use ZealPHP\App;
 
 <?php
 // 1 ─ Routing + params + $req
-App::render('components/_demo', [
+echo App::component('demo', [
   'title' => '1 · Routing, params & $req',
   'hint'  => '<span class="badge badge-get">GET</span> /playground/greet',
   'code'  => <<<'PHP'
 // route/playground.php — $req / $res are short
 // aliases for $request / $response (v0.4.0).
+// The fragment is a component, escaped there:
+// template/playground/components/result.php
 $app->route('/playground/greet', function ($req) {
     $name = trim($req->get['name'] ?? '') ?: 'world';
-    $name = htmlspecialchars($name);
-    return "<strong>Hello, {$name}!</strong>
-            <br><small>served by worker "
-          . getmypid() . "</small>";
+    return App::component('/playground/components/result', [
+        'strong' => "Hello, {$name}!",
+        'note'   => 'served by worker ' . getmypid(),
+    ]);
 });
 PHP,
   'live'  => <<<'HTML'
@@ -47,7 +49,7 @@ HTML,
 ]);
 
 // 2 ─ Universal return contract
-App::render('components/_demo', [
+echo App::component('demo', [
   'title' => '2 · The universal return contract',
   'hint'  => 'array→JSON · int→status · generator→stream',
   'code'  => <<<'PHP'
@@ -75,7 +77,7 @@ HTML,
 ]);
 
 // 3 ─ Store + Counter (cross-worker)
-App::render('components/_demo', [
+echo App::component('demo', [
   'title' => '3 · Store &amp; Counter — cross-worker state',
   'hint'  => '<span class="badge badge-post">POST</span> /playground/counter',
   'code'  => <<<'PHP'
@@ -84,10 +86,11 @@ App::render('components/_demo', [
 // one atomic integer shared by every worker.
 $app->route('/playground/counter', methods: ['POST'],
   handler: function () use ($hits) {
-    $n = $hits->increment();
-    return "<strong>{$n}</strong> total hits
-            <br><small>this one served by worker "
-          . getmypid() . "</small>";
+    return App::component('/playground/components/result', [
+        'strong' => (string) $hits->increment(),
+        'text'   => ' total hits',
+        'note'   => 'this one served by worker ' . getmypid(),
+    ]);
 });
 PHP,
   'live'  => <<<'HTML'
@@ -99,7 +102,7 @@ HTML,
 ]);
 
 // 4 ─ HTMX response helpers (HtmxResponse → HX-Trigger)
-App::render('components/_demo', [
+echo App::component('demo', [
   'title' => '4 · HtmxResponse — server-driven UI',
   'hint'  => 'HX-Trigger fires a client event',
   'code'  => <<<'PHP'
@@ -111,9 +114,10 @@ $app->route('/playground/toast', methods: ['POST'],
     $res->htmx()->trigger(
         '{"toast":"Triggered from the server!"}'
     );
-    return "<strong>Sent HX-Trigger.</strong>
-            <br><small>the toast came from PHP, "
-          . "not JS</small>";
+    return App::component('/playground/components/result', [
+        'strong' => 'Sent HX-Trigger.',
+        'note'   => 'the toast came from PHP, not JS',
+    ]);
 });
 PHP,
   'live'  => <<<'HTML'
@@ -125,7 +129,7 @@ HTML,
 ]);
 
 // 5 ─ SSE live stream
-App::render('components/_demo', [
+echo App::component('demo', [
   'title' => '5 · Server-Sent Events — $res->sse()',
   'hint'  => '<span class="badge badge-sse">SSE</span> /playground/sse',
   'code'  => <<<'PHP'

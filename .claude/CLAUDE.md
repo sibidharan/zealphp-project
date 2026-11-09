@@ -40,7 +40,9 @@ php app.php --help
 app.php          — Entry point: configure framework, define routes, call $app->run()
 public/          — Document root (the default; set via App::documentRoot() before App::init()): static files + PHP page files
 route/           — Route files: auto-included at startup, define additional routes
-template/        — Templates: rendered via App::render('template_name', $vars)
+template/        — Views. A page's templates live in a folder named after its public file
+                   (public/playground.php → template/playground/), its components in
+                   template/playground/components/; shared components in template/components/
 api/             — File-based REST API: api/data/get.php → GET /api/data
 src/             — Application classes (PSR-4 autoloaded)
 llms.txt         — Full ZealPHP framework reference for AI tools (auto-generated; do not edit by hand)
@@ -499,10 +501,20 @@ Accepted by all four registrars and `$app->group()`, as the `backend:` named arg
 | No top-level `function` in `route/*.php` | Breaks dev hot-reload (`--dev`) — re-including the file fatals on redeclaration in coroutine mode. Extract helpers to `src/` classes. |
 | `function_exists()` = wrong place | The function belongs in a class, autoloaded via Composer. |
 
+### Where code goes — rules, not suggestions
+
+You will be tempted to put a page's HTML in a route closure, or to build a whole page in one long template. Don't. This app follows these rules, and so must your changes (canonical: https://php.zeal.ninja/docs/guide/directory-structure#where-code-goes):
+
+1. **Routes and APIs are wiring.** Read the input, call a `src/` class, return a status, data (array → JSON), or `App::render()` / `App::component()`. **No markup in `route/` or `api/`** — no HTML strings, heredocs or echoed tags. An htmx endpoint returns a component: `return App::component('/playground/components/result', [...])`.
+2. **Build pages from components.** A page template arranges `App::component()` calls; every self-contained piece of UI (card, form, row, widget, fragment) is a component with props, not markup copied between pages.
+3. **Components live next to their page:** `template/<page>/components/`. Move one to `template/components/` when a second page uses it — the call doesn't change. Routes/APIs name a page's component in full (`'/playground/components/result'`).
+4. **Templates are views** — no logic, queries, function declarations, inline `<script>` or `style=`.
+5. **State that changes on the page is a reactive component** (`App::components()`), not markup a handler rebuilds.
+
 ### Architecture Rules
 - **Business logic in `src/`** — proper OOP classes with constructors, autoloaded via Composer PSR-4.
 - **API endpoints in `api/`** (ZealAPI) — file-based REST routing. Use `route/` only for path-param routes, WebSocket, or Store tables.
-- **Thin route handlers** — 1–5 lines that call a `src/` service class. If a handler exceeds ~10 lines, extract to a service.
+- **Thin route handlers** — 1–5 lines that call a `src/` service class and return data or a component. If a handler exceeds ~10 lines, extract to a service.
 - **`app.php` stays thin** — bootstrap only: middleware registration, `$app->run()`.
 
 ### htmx Convention

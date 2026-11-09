@@ -1,5 +1,7 @@
 <?php
 // Universal layout. Caller: App::render('_master', ['title'=>..., 'page'=>'home', 'active'=>'home']).
+// 'page' names the page's template, looked up in the page's own folder first
+// (public/index.php -> template/index/home.php).
 // $page selects template/pages/$page.php. hx-boost makes every <a>/<form> an AJAX
 // swap; head-support keeps <title> + assets in sync across boosted navigations.
 /** @var string $title */
@@ -14,7 +16,7 @@ $page = $page ?? 'home';
 <body hx-boost="true" hx-ext="head-support">
 <?php App::render('_nav', ['active' => $active ?? $page]); ?>
 <main id="main">
-<?php App::render('pages/' . $page, []); ?>
+<?php App::render($page); /* the page's own template: template/<public file>/<page>.php */ ?>
 </main>
 <?php App::render('_footer'); ?>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
