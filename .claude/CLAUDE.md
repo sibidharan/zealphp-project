@@ -85,7 +85,7 @@ App::render('users/page', $args, fragment: 'list'); // one App::fragment() regio
 App::render('users/page', $args, htmx: true);       // fragment for htmx requests, full page otherwise
 
 // component(): markup inside a page. Returns SafeHtml, never echoes.
-<?= App::component('card', ['title' => 'Hi']) ?>     // template/components/card.php (or _card.php)
+<?= App::component('card', ['title' => 'Hi']) ?>     // same lookup as render(): page folder, its components/, template/, template/components/ (card.php before _card.php)
 $html = (string) App::component('/emails/welcome', ['user' => $u]); // leading / = any template
 ```
 Pages call `render()`; anything inside a page calls `component()`. The old `renderToString()` (→ `App::component('/path', $args)`), `renderStream()` (→ `render(…, stream: true)`) and `renderHtmx()` (→ `render(…, htmx: true)`) are deprecated aliases until 1.0 — don't use them in new code.
@@ -156,6 +156,12 @@ App::components([Counter::class]);
 - **Needs `ZEALPHP_APP_KEY`** (`php app.php key:generate`); with components registered and no key, boot refuses outside dev mode.
 - **Live updates:** list dependencies in `topics()` and call `Component::invalidate('topic')` after a write; add `<?= App::componentPushRoot() ?>` before `</body>`. Every open page showing the component re-renders it (WebSockets by default, SSE with `ZEALPHP_COMPONENT_PUSH=sse`), across workers and nodes. Pushes carry ids only; each page refreshes through the normal endpoint with its own session.
 - Never store component instances in statics or the Store; snapshots are replayable by their own session, so keep authoritative state (votes, balances) in your database.
+- A component returns **content only** (echo, string, `SafeHtml`, Generator, Closure). Returning a status code, array or response object throws — the route or page owns the response.
+- **Nesting:** a reactive component can render reactive children; give each a `key:` (`App::component(Item::class, ['id' => $id], key: (string) $id)`). Children keep their state when the parent re-renders; mark props that should follow the parent with `#[\ZealPHP\Component\Reactive]`.
+- **Events:** `$this->dispatch('cart-updated')` in one component; `#[\ZealPHP\Component\On('cart-updated')]` on a public method of another runs it and re-renders that component (htmx or `ZealJsBinder`; not without JavaScript).
+- **Slots:** pass markup in with the `slot` prop; the child prints `<?= $slot ?>`. A slot can't contain reactive components. `slot`, `c` and `errors` are reserved property names.
+- **Without htmx:** `App::componentBinder(new \ZealPHP\Component\ZealJsBinder())` and `<?= \ZealPHP\Component\ZealJsBinder::script() ?>` in the layout.
+- **Testing:** `\ZealPHP\Component\Tester::render(Counter::class)->call('increment')->assertSet('count', 1)` drives the real endpoint, no server needed. Scaffold with `php app.php make:component Name [--stateless]`.
 
 ### Return value conventions
 ```php
