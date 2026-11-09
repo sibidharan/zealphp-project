@@ -90,7 +90,20 @@ App::render('users/page', $args, htmx: true);       // fragment for htmx request
 <?= App::component('card', ['title' => 'Hi']) ?>     // same lookup as render(): page folder, its components/, template/, template/components/ (card.php before _card.php)
 $html = (string) App::component('/emails/welcome', ['user' => $u]); // leading / = any template
 ```
-Pages call `render()`; anything inside a page calls `component()`. The old `renderToString()` (→ `App::component('/path', $args)`), `renderStream()` (→ `render(…, stream: true)`) and `renderHtmx()` (→ `render(…, htmx: true)`) are deprecated aliases until 1.0 — don't use them in new code.
+Pages call `render()`; anything inside a page calls `component()`.
+
+**How a page renders.** `public/playground.php` calls `App::render('_master', ['page' => 'playground', …])`; the layout renders the page's own template, `template/playground/playground.php`, which lays the page out from components: `App::component('demo', …)` finds `template/playground/components/demo.php`, a shared name finds `template/components/…`. Relative names resolve from the **request's** page (the public file), not from the calling file, so:
+
+| In | Write |
+|---|---|
+| a page template, or a component it renders | `App::component('demo', $props)` |
+| a route, an API, an htmx endpoint (no page) | `return App::component('/playground/components/result', $props)` (full name), or a shared name |
+| a reactive component | `$this->view('/playground/components/counter')` (it re-renders from `/_zeal/c/…`, no page) |
+| a page's component that a route also renders | name its own children in full too |
+
+Full reference: https://php.zeal.ninja/docs/guide/templates-and-rendering#where-components-can-be-used
+
+The old `renderToString()` (→ `App::component('/path', $args)`), `renderStream()` (→ `render(…, stream: true)`) and `renderHtmx()` (→ `render(…, htmx: true)`) are deprecated aliases until 1.0 — don't use them in new code.
 
 Escape output with `ZealPHP\e()` (HTML text and quoted attributes); `Escape::url()`, `Escape::safeUrl()` (refuses `javascript:`/`data:`), `Escape::js()` (JSON safe in `<script>`) and `Escape::raw()` (trusted markup) cover the rest.
 
